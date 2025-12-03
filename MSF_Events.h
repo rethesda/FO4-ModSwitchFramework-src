@@ -95,6 +95,8 @@ DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x00442050); //diff: A0
 DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x004DCB30); //diff: D0 //2201825
 #elif CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 10, 984) 
 DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x004DCB60);
+#elif CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 11, 137) 
+DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x0052DB80);
 #endif
 
 //CombatEvent
@@ -312,6 +314,11 @@ extern RelocAddr <uintptr_t> CannotEquipItem_SkipJumpAddr;
 extern RelocAddr <uintptr_t> CannotEquipItem_TextAddr;
 extern uintptr_t CannotEquipItem_BranchCode;
 
+extern RelocAddr <uintptr_t> AModToInvItem_Attach_AV_HookTarget;
+extern RelocAddr <uintptr_t> AModToInvItem_Equip_AV_HookTarget;
+extern _AttachRemoveModInternal AttachRemoveModInternal_Copied;
+extern _EquipItemPapyrus EquipItemPapyrus_Copied;
+
 struct ReloadJumpReplace {
 	uint8_t original[2] = { 0x0F, 0x84 };
 	uint8_t replacement[2] = { 0x90, 0xE9 };
@@ -457,6 +464,8 @@ void* AttackBlockHandler_Hook(void* handler);
 bool AttackInputHandler_Hook(void* PlayerInputHandler, UInt32 inputCode, UInt32 r8d);
 bool AttackInputHandlerReload_Hook(void* PlayerInputHandler, UInt32 inputCode, UInt32 r8d);
 void* EquipHandler_UpdateAnimGraph_Hook(Actor* actor, bool unk_rdx);
+void AttachRemoveModInternal_Hook(Actor* actor, TESBoundObject* baseItem, CheckStackIDFunctor* CheckStackIDFunctor, StackDataWriteFunctor* ModifyModDataFunctor, void* arg_1, void* arg_2, void* arg_3, void* arg_4, void* arg_5, void* arg_6, void* arg_7);
+void EquipItemPapyrus_Hook(Actor* actor, TESBoundObject* baseItem, UInt32 r8d);
 bool AttachModToStack_CallFromGameplay_Hook(BGSInventoryItem* invItem, CheckStackIDFunctor* IDfunctor, StackDataWriteFunctor* modFunctor, UInt32 unk_r9d, UInt32* unk_rsp20);
 bool AttachModToStack_CallFromWorkbenchUI_Hook(BGSInventoryItem* invItem, CheckStackIDFunctor* IDfunctor, StackDataWriteFunctor* changesFunctor, UInt32 unk_r9d, UInt32* unk_rsp20);
 bool DeleteExtraData_CallFromWorkbenchUI_Hook(BSExtraData** extraDataHead, ExtraDataType type);

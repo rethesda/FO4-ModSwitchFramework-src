@@ -1,4 +1,16 @@
 ---
+v1.2.1
+features:
+- included a patch for vanilla Actor Value calculation, which caused incorrect substraction of AVs when changing mods on equipped items (including the AttachModToInventoryItem papyrus function)
+- added GetModForAmmo and GetAmmoTypesForBaseAmmo Papyrus functions
+- added an MCM option to automatically set the clip counter to zero before ammo switching
+- added an MCM option to turn off TR animation support
+- added an MCM option to turn off TR chamber support
+- added an MCM option to turn off extra weapon state storage
+fixes:
+- fixed possible CTD when duplicate weapon state IDs were present
+- the base ammo replacement option in the MCM will now correctly be independent of the spawn random ammo option
+---
 v1.2.0
 features:
 - added ammo cycling feature with hotkey

@@ -380,7 +380,7 @@ bool CheckAmmoCountForReload_Hook(Actor* target, UInt32 loadedAmmo, UInt32 ammoC
 	UInt16 chamberSize = 0;
 	UInt16 flags = 0;
 	MSF_Data::GetChamberData(Utilities::GetEquippedModData(target), instanceData, &chamberSize, &flags);
-	if (MSF_Data::InstanceHasTRSupport(instanceData) || flags & ExtraWeaponState::WeaponState::bHasTacticalReload)
+	if ((MSF_Data::InstanceHasTRSupport(instanceData) || flags & ExtraWeaponState::WeaponState::bHasTacticalReload) && MSF_MainData::MCMSettingFlags & MSF_MainData::bEnableTacticalReloadChamber)
 	{
 		return (loadedAmmo < (ammoCap+chamberSize) && loadedAmmo < ammoReserve);
 	}
@@ -406,6 +406,33 @@ void* EquipHandler_UpdateAnimGraph_Hook(Actor* actor, bool unk_rdx)
 		return EquipHandler_UpdateAnimGraph_Copied(actor, unk_rdx);
 		//return UpdateAnimGraph(actor, unk_rdx);
 	return 0;
+}
+
+void AttachRemoveModInternal_Hook(Actor* actor, TESBoundObject* baseItem, CheckStackIDFunctor* CheckStackIDFunctor, StackDataWriteFunctor* ModifyModDataFunctor, void* arg_1, void* arg_2, void* arg_3, void* arg_4, void* arg_5, void* arg_6, void* arg_7)
+{
+	std::vector<TBO_InstanceData::ValueModifier> avifValues;
+	auto stack = Utilities::GetStackFromItem(actor, baseItem, CheckStackIDFunctor->stackID);
+	ExtraDataList* list = nullptr;
+	if (stack && stack->extraData)
+	{
+		list = stack->extraData;
+		ExtraInstanceData* extraInstanceData = DYNAMIC_CAST(list->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
+		if (extraInstanceData)
+			MSF_Base::GetActorValues((TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
+	}
+	AttachRemoveModInternal_Copied(actor, baseItem, CheckStackIDFunctor, ModifyModDataFunctor, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7);
+	EquipItemPapyrus_Copied(actor, baseItem, 0);
+	if (list)
+	{
+		ExtraInstanceData* extraInstanceData = DYNAMIC_CAST(list->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
+		if (extraInstanceData)
+			MSF_Base::PatchActorValues(actor, (TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
+	}
+}
+
+void EquipItemPapyrus_Hook(Actor* actor, TESBoundObject* baseItem, UInt32 r8d)
+{
+	return;
 }
 
 bool AttachModToStack_CallFromGameplay_Hook(BGSInventoryItem* invItem, CheckStackIDFunctor* IDfunctor, StackDataWriteFunctor* modFunctor, UInt32 unk_r9d, UInt32* unk_rsp20)

@@ -244,6 +244,11 @@ namespace Utilities
 		ShowNotification(asNotificationText.c_str(), 0, 1);
 	}
 
+	UInt32 PlaySoundInternal(BGSSoundDescriptorForm* sound, TESObjectREFR* target)
+	{
+		return PlaySoundInt(sound, target);//(*g_gameVM)->m_virtualMachine, 0, 
+	}
+
 	//void ShowMessagebox(std::string asText) {
 	//	CallGlobalFunctionNoWait1<BSFixedString>("Debug", "Messagebox", BSFixedString(asText.c_str()));
 	//}

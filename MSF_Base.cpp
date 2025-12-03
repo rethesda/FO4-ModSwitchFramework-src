@@ -492,6 +492,9 @@ namespace MSF_Base
 
 		_DEBUG("AcheckOK");
 
+		std::vector<TBO_InstanceData::ValueModifier> avifValues;
+		GetActorValues((TESObjectWEAP::InstanceData*)extraInstanceData->instanceData, &avifValues);
+
 		bool ret = false;
 
 		CheckStackIDFunctor IDfunctor(Utilities::GetStackID(item, stack));
@@ -569,6 +572,9 @@ namespace MSF_Base
 		MSF_MainData::modSwitchManager.SetModChangeEvent(true);
 		MSF_MainData::modSwitchManager.SetIgnoreAnimGraph(true);
 		EquipItemInternal(g_ActorEquipManager, actor, idStruct, 0, 1, nullptr, 0, 0, 0, 1, 0);
+
+		PatchActorValues(actor, instanceData, &avifValues);
+
 		//actor->middleProcess->unk08->unk290[1] &= 0xFFFFFFFF00000000;//0xFF00000000000000;
 		//UpdateMiddleProcess(actor->middleProcess, actor, idStruct, newInstanceData->equipSlot);
 		//actor->middleProcess->unk08->unk290[1] = actor->middleProcess->unk08->unk290[1] & 0xFFFFFFFF00000000 | 0x1;
@@ -692,20 +698,22 @@ namespace MSF_Base
 		if (!stack)
 			return false;
 
-		Actor* ownerActor = nullptr;
-		bool isEquipped = false;
-		if (stack->flags & BGSInventoryItem::Stack::kFlagEquipped)
-		{
-			isEquipped = true;
-			ownerActor = DYNAMIC_CAST(owner, TESObjectREFR, Actor);
-		}
-
 		ExtraDataList* dataList = stack->extraData;
 		if (!dataList)
 			return false;
 		ExtraInstanceData* extraInstanceData = DYNAMIC_CAST(dataList->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
 		if (!extraInstanceData || !extraInstanceData->baseForm || !extraInstanceData->instanceData)
 			return false;
+
+		Actor* ownerActor = nullptr;
+		bool isEquipped = false;
+		std::vector<TBO_InstanceData::ValueModifier> avifValues;
+		if (stack->flags & BGSInventoryItem::Stack::kFlagEquipped)
+		{
+			isEquipped = true;
+			ownerActor = DYNAMIC_CAST(owner, TESObjectREFR, Actor);
+			GetActorValues((TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
+		}
 
 		bool ret = false;
 
@@ -766,6 +774,8 @@ namespace MSF_Base
 				if (updateAnimGraph)
 					UpdateAnimGraph(ownerActor, false);
 
+				PatchActorValues(ownerActor, (TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
+
 				EquipWeaponData* newEqData = (EquipWeaponData*)ownerActor->middleProcess->unk08->equipData[0].equippedData;
 				ExtraWeaponState* weaponState = ExtraWeaponState::Init(dataList, nullptr);
 				if (weaponState)
@@ -775,6 +785,7 @@ namespace MSF_Base
 			{
 				UnequipItemInternal(g_ActorEquipManager, ownerActor, idStruct, 1, nullptr, -1, 0, 0, 0, 0, nullptr);
 				EquipItemInternal(g_ActorEquipManager, ownerActor, idStruct, stackID, 1, nullptr, 1, 0, 0, 0, 0);
+				PatchActorValues(ownerActor, (TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
 			}
 
 			//?
@@ -1015,7 +1026,7 @@ namespace MSF_Base
 
 	void SpawnRandomMods(TESObjectCELL* cell)
 	{
-		if (MSF_MainData::MCMSettingFlags & (MSF_MainData::bSpawnRandomAmmo | MSF_MainData::bSpawnRandomMods))
+		if (MSF_MainData::MCMSettingFlags & (MSF_MainData::bSpawnRandomAmmo | MSF_MainData::bSpawnRandomMods | MSF_MainData::bReplaceAmmoWithSpawned))
 		{
 			//_DEBUG("mod spawn");
 			for (UInt32 i = 0; i < cell->objectList.count; i++)
@@ -1104,6 +1115,46 @@ namespace MSF_Base
 		return ret;
 	}
 
+	void PatchActorValues(TESObjectREFR* ref, TESObjectWEAP::InstanceData* newInstance, std::vector<TBO_InstanceData::ValueModifier>* avifValues)
+	{
+		if (!ref || !newInstance || !avifValues || !(MSF_MainData::MCMSettingFlags & MSF_MainData::bPatchVanillaAVcalculation))
+			return;
+		if (!newInstance->modifiers || newInstance->modifiers->count == 0)
+		{
+			if (avifValues->size() == 0)
+				return;
+			for (auto mod : *avifValues)
+				ref->actorValueOwner.Mod(0, mod.avInfo, -((float)(mod.unk08)));
+		}
+		else
+		{
+			for (UInt32 i = 0; i < newInstance->modifiers->count; i++)
+			{
+				TBO_InstanceData::ValueModifier* mod = &(newInstance->modifiers->entries[i]);
+				ActorValueInfo* avif = mod->avInfo;
+				auto itAVIF = std::find_if(avifValues->begin(), avifValues->end(), [avif](TBO_InstanceData::ValueModifier& data) {
+					return data.avInfo == avif;
+				});
+				if (itAVIF == avifValues->end())
+					ref->actorValueOwner.Mod(0, mod->avInfo, (float)(mod->unk08));
+				else
+					ref->actorValueOwner.Mod(0, mod->avInfo, ((float)(mod->unk08)) - ((float)(itAVIF->unk08)));
+			}
+		}
+	}
+
+	void GetActorValues(TESObjectWEAP::InstanceData* instance, std::vector<TBO_InstanceData::ValueModifier>* avifValues)
+	{
+		if (!instance || !avifValues || !instance->modifiers || instance->modifiers->count == 0)
+			return;
+		for (UInt32 i = 0; i < instance->modifiers->count; i++)
+		{
+			TBO_InstanceData::ValueModifier mod;
+			instance->modifiers->GetNthItem(i, mod);
+			avifValues->push_back(mod);
+		}
+	}
+
 
 
 	//========================== Animation Functions ===========================
@@ -1120,12 +1171,12 @@ namespace MSF_Base
 				full = true;
 			}
 		}
-		if (clearAmmoCount)
+		if (clearAmmoCount || MSF_MainData::MCMSettingFlags & MSF_MainData::bEmptyClipBeforeSwitch)
 		{
 			EquipWeaponData* eqData = Utilities::GetEquippedWeaponData(playerActor);
 			eqData->loadedAmmoCount = 0;
 		}
-		if (!full)
+		if (!full || !(MSF_MainData::MCMSettingFlags & MSF_MainData::bEnableTacticalReloadAnim))
 		{
 			if (isSwitch)
 				Utilities::SetAnimationVariableInt(playerActor, "SwitchAmmoTypeReload", 1);
@@ -1171,4 +1222,15 @@ namespace MSF_Base
 		return false;
 	}
 
+	bool PlayFeedbackSound(bool play, bool fail, BGSSoundDescriptorForm* success)
+	{
+		if (play)
+		{
+			if (fail)
+				return Utilities::PlaySoundInternal(MSF_MainData::failSound, *g_player);
+			else if (success)
+				return Utilities::PlaySoundInternal(success, *g_player);
+		}
+		return false;
+	}
 }

@@ -75,7 +75,7 @@ public:
 		UInt32 loadedAmmo;
 		UInt32 chamberedCount;
 	};
-	AmmoStateData* GetAmmoStateData();
+	bool GetAmmoStateData(ExtraWeaponState::AmmoStateData* data);
 
 	class WeaponState
 	{
@@ -132,7 +132,10 @@ public:
 	void Free()
 	{
 		for (auto& state : vectorstorage)
-			delete state;
+		{
+			if (state)
+				delete state;
+		}
 		vectorstorage.clear();
 		mapstorage.clear();
 		ranksToClear.clear();
@@ -204,7 +207,7 @@ public:
 		if (itHolder == mapstorage.end() || !itHolder->second)
 			return nullptr;
 		ExtraRank* holder = itHolder->second;
-		if (holder->rank != id)
+		if (holder && holder->rank != id)
 		{
 			_DEBUG("IDerror");
 			holder = nullptr;
@@ -243,6 +246,9 @@ public:
 		for (auto holder : ranksToClear)
 		{
 			_DEBUG("invalid: %08X %p", holder.first, holder.second);
+			if (!holder.second)
+				continue;
+			_DEBUG("cleared");
 			holder.second->rank = 0;
 		}
 		ranksToClear.clear();
@@ -300,6 +306,7 @@ public:
 	BCRinterface()
 	{
 		_base = reinterpret_cast<uintptr_t>(GetModuleHandle("BulletCountedReload.dll"));
+		_base2 = _base;
 		if (_base)
 			_MESSAGE("BulletCountedReload.dll found at %p", _base);
 		else
@@ -394,8 +401,11 @@ public:
 	}
 
 	bool IsLoaded() { return _base ? true : false; }
+	void Disable() { _base = 0; }
+	void Enable() { _base = _base2; }
 private:
 	uintptr_t _base;
+	uintptr_t _base2;
 	RelocModuleAddr<TESObjectWEAP::InstanceData*> BCR_instanceData;
 	RelocModuleAddr<UInt32> BCR_ammoCount;
 	RelocModuleAddr<UInt32> BCR_ammoCapacity;

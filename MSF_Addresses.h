@@ -48,13 +48,22 @@ class Offset
 public:
 	constexpr Offset() noexcept = default;
 
-	explicit constexpr Offset(std::size_t a_offset, std::size_t a_offset_ng = 0) noexcept :
+	explicit constexpr Offset(std::size_t a_offset, std::size_t a_offset_ng = 0, std::size_t a_offset_ae = 0) noexcept :
 #ifndef NEXTGEN
 		_offset(a_offset)
+	{}
+#elif CURRENT_RELEASE_RUNTIME >= MAKE_EXE_VERSION(1, 11, 137) 
+		_offset(a_offset)
+	{
+		if (a_offset_ng != 0)
+			_offset = a_offset_ng;
+		if (a_offset_ae != 0)
+			_offset = a_offset_ae;
+	}
 #else
 		_offset((a_offset_ng == 0) ? a_offset : a_offset_ng)
-#endif
 	{}
+#endif
 
 	constexpr Offset& operator=(std::size_t a_offset) noexcept
 	{
@@ -76,13 +85,23 @@ class ID
 public:
 	constexpr ID() noexcept = default;
 
-	explicit constexpr ID(std::uint64_t a_id, std::uint64_t a_id_ng = 0) noexcept :
+	explicit constexpr ID(std::uint64_t a_id, std::uint64_t a_id_ng = 0, std::uint64_t a_id_ae = 0) noexcept :
 #ifndef NEXTGEN
-		_id(a_id)
-#else
-		_id((a_id_ng == 0) ? a_id : a_id_ng)
-#endif
+		_id(a_id) 
 	{}
+#elif CURRENT_RELEASE_RUNTIME >= MAKE_EXE_VERSION(1, 11, 137) 
+		_id(a_id)
+	{
+		if (a_id_ng != 0)
+			_id = a_id_ng;
+		if (a_id_ae != 0)
+			_id = a_id_ae;
+	}
+#else
+		_id((a_id_ng == 0) ? a_id : a_id_ng) 
+	{}
+#endif
+
 
 	constexpr ID& operator=(std::uint64_t a_id) noexcept
 	{

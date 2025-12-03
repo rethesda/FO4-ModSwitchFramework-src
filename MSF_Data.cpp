@@ -58,7 +58,7 @@ bool MSF_MainData::GameIsLoading = true;
 bool MSF_MainData::IsInitialized = false;
 int MSF_MainData::iCheckDelayMS = 10;
 int MSF_MainData::quickKeyTimeoutMS = 300;
-UInt32 MSF_MainData::MCMSettingFlags = 0;
+UInt64 MSF_MainData::MCMSettingFlags = 0;
 UInt16 MSF_MainData::iMinRandomAmmo = 5;
 UInt16 MSF_MainData::iMaxRandomAmmo = 50;
 UInt16 MSF_MainData::iAutolowerTimeMS = 0;
@@ -88,6 +88,7 @@ UInt64 MSF_MainData::lowerWeaponHotkey = 0;
 UInt64 MSF_MainData::cancelSwitchHotkey = 0;
 UInt64 MSF_MainData::patchBaseAmmoHotkey = 0;
 UInt64 MSF_MainData::DEBUGprintStoredDataHotkey = 0;
+BGSSoundDescriptorForm* MSF_MainData::failSound = nullptr;
 std::unordered_map<BGSMod::Attachment::Mod*, BurstModeData*>  MSF_MainData::burstModeData;
 std::unordered_map<BGSMod::Attachment::Mod*, ModData::Mod*> MSF_MainData::modDataMap;
 std::unordered_map<BGSMod::Attachment::Mod*, AmmoData::AmmoMod*> MSF_MainData::ammoModMap;
@@ -197,6 +198,7 @@ bool ModSwitchManager::HandleQuickkey(KeybindData* input)
 		{
 			if (quickSelectIdx > quickSelection.ammo.ammoData->ammoMods.size())
 				quickSelectIdx = 0;
+			_DEBUG("qsidx: %08X", quickSelectIdx);
 			if (MSF_MainData::MCMSettingFlags & MSF_MainData::bRequireAmmoToSwitch)
 			{
 				UInt32 idx = -2;
@@ -471,6 +473,19 @@ namespace MSF_Data
 							if (!itAmmo->second->baseAmmoData.mod)
 								continue;
 							_DEBUG("patching baseAmmo in ref inventory %i, %i", ii, stackID);
+							Actor* actorRef = nullptr;
+							ExtraInstanceData* extraInstanceData = nullptr;
+							std::vector<TBO_InstanceData::ValueModifier> avifValues;
+							if (stack->flags & BGSInventoryItem::Stack::kFlagEquipped)
+							{
+								actorRef = DYNAMIC_CAST(ref, TESObjectREFR, Actor);
+								if (actorRef)
+								{
+									extraInstanceData = DYNAMIC_CAST(stack->extraData->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
+									if (extraInstanceData)
+										MSF_Base::GetActorValues((TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
+								}
+							}
 							bool ret = false;
 							CheckStackIDFunctor IDfunctor(stackID);
 							ModifyModDataFunctor modFunctor(itAmmo->second->baseAmmoData.mod, 0, true, &ret);
@@ -479,16 +494,16 @@ namespace MSF_Data
 							AttachRemoveModStack(item, &IDfunctor, &modFunctor, 0, &unk);
 							if (stack->flags & BGSInventoryItem::Stack::kFlagEquipped)
 							{
-								Actor* actorRef = DYNAMIC_CAST(ref, TESObjectREFR, Actor);
 								if (!actorRef)
 									continue;
-								ExtraInstanceData* extraInstanceData = DYNAMIC_CAST(stack->extraData->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
+								extraInstanceData = DYNAMIC_CAST(stack->extraData->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
 								if (!extraInstanceData)
 									continue;
 								BGSObjectInstance idStruct;
 								idStruct.object = extraInstanceData->baseForm;
 								idStruct.instanceData = extraInstanceData->instanceData;
 								EquipItemInternal(g_ActorEquipManager, actorRef, idStruct, 0, 1, nullptr, 0, 0, 0, 1, 0);
+								MSF_Base::PatchActorValues(actorRef, (TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
 							}
 						}
 					}
@@ -654,6 +669,7 @@ namespace MSF_Data
 		MSF_MainData::BCR_AVIF = reinterpret_cast<ActorValueInfo*>(LookupFormByID((UInt32)0x0000300)); 
 		MSF_MainData::BCR_AVIF2 = reinterpret_cast<ActorValueInfo*>(LookupFormByID((UInt32)0x00002FC));
 		MSF_MainData::FusionCoreKW = reinterpret_cast<BGSKeyword*>(LookupFormByID((UInt32)0x005BDAA)); //1025AE
+		MSF_MainData::failSound = reinterpret_cast<BGSSoundDescriptorForm*>(LookupFormByID((UInt32)0x003EC24));
 
 		UInt8 tacticalReloadModIndex = (*g_dataHandler)->GetLoadedModIndex("TacticalReload.esm");
 		if (tacticalReloadModIndex != 0xFF)
@@ -760,8 +776,8 @@ namespace MSF_Data
 		MSF_MainData::MCMSettingFlags = (MSF_MainData::bReloadEnabled | MSF_MainData::bCustomAnimEnabled | MSF_MainData::bAmmoRequireWeaponToBeDrawn | MSF_MainData::bRequireAmmoToSwitch\
 			| MSF_MainData::bReplaceAmmoWithSpawned | MSF_MainData::bSpawnRandomMods | MSF_MainData::bInjectLeveledLists | MSF_MainData::bWidgetAlwaysVisible | MSF_MainData::bShowAmmoIcon | MSF_MainData::bShowMuzzleIcon | MSF_MainData::bShowAmmoName \
 			| MSF_MainData::bShowMuzzleName | MSF_MainData::bShowFiringMode | MSF_MainData::bShowScopeData | MSF_MainData::bShowUnavailableMods | MSF_MainData::bEnableMetadataSaving \
-			| MSF_MainData::bEnableAmmoSaving | MSF_MainData::bEnableTacticalReloadAnim | MSF_MainData::bEnableBCRSupport | MSF_MainData::bDisplayChamberedAmmoOnHUD | MSF_MainData::bDisplayMagInPipboy \
-			| MSF_MainData::bDisplayChamberInPipboy | MSF_MainData::bShowQuickkeySelection);
+			| MSF_MainData::bEnableExtraWeaponState | MSF_MainData::bEnableTacticalReloadChamber | MSF_MainData::bEnableTacticalReloadAnim | MSF_MainData::bEnableBCRSupport | MSF_MainData::bDisplayChamberedAmmoOnHUD | MSF_MainData::bDisplayMagInPipboy \
+			| MSF_MainData::bDisplayChamberInPipboy | MSF_MainData::bShowQuickkeySelection | MSF_MainData::bPatchVanillaAVcalculation);
 
 		if (ReadUserSettings())
 			_MESSAGE("User settings loaded for MSF");
@@ -940,6 +956,10 @@ namespace MSF_Data
 							KeybindData* kb = kbIt->second;
 							std::string menuName = keybind["menuName"].asString();
 							UInt16 flags = keybind["keyfunction"].asInt();
+							std::string str = keybind["successSound"].asString();
+							BGSSoundDescriptorForm* successSound = nullptr;
+							if (str != "")
+								successSound = DYNAMIC_CAST(Utilities::GetFormFromIdentifier(str), TESForm, BGSSoundDescriptorForm);
 							if ((menuName == "") && (flags & KeybindData::bHUDselection))
 							{
 								_MESSAGE("Keybind read error in %s: if 'bHUDselection' flag is set 'menuName' can not be an empty string", modName.c_str());
@@ -970,6 +990,7 @@ namespace MSF_Data
 								kb->selectMenu = nullptr;
 								kb->type = flags;
 							}
+							kb->successSound = successSound;
 						}
 						else
 						{
@@ -980,6 +1001,10 @@ namespace MSF_Data
 								_MESSAGE("Keybind read error in %s: if 'bHUDselection' flag is set 'menuName' can not be an empty string", modName.c_str());
 								continue;
 							}
+							std::string str = keybind["successSound"].asString();
+							BGSSoundDescriptorForm* successSound = nullptr;
+							if (str != "")
+								successSound = DYNAMIC_CAST(Utilities::GetFormFromIdentifier(str), TESForm, BGSSoundDescriptorForm);
 							KeybindData* kb = new KeybindData();
 							kb->functionID = id;
 							kb->type = flags;
@@ -1001,6 +1026,7 @@ namespace MSF_Data
 							else
 								kb->selectMenu = nullptr;
 							kb->modData = nullptr;
+							kb->successSound = successSound;
 							MSF_MainData::keybindIDMap[id] = kb;
 						}
 					}
@@ -1103,7 +1129,7 @@ namespace MSF_Data
 			//	MSF_MainData::MCMSettingFlags &= ~(1 << flagType);
 			//return true;
 			bool flagValue = settingValue != "0";
-			UInt32 flag = 0;
+			UInt64 flag = 0;
 			if (settingName == "bWidgetAlwaysVisible")
 				flag = MSF_MainData::bWidgetAlwaysVisible;
 			else if (settingName == "bShowAmmoIcon")
@@ -1148,14 +1174,6 @@ namespace MSF_Data
 				flag = MSF_MainData::bInjectLeveledLists;
 			else if (settingName == "bEnableMetadataSaving")
 				flag = MSF_MainData::bEnableMetadataSaving;
-			else if (settingName == "bEnableAmmoSaving")
-				flag = MSF_MainData::bEnableAmmoSaving;
-			else if (settingName == "bEnableTacticalReloadAll")
-				flag = MSF_MainData::bEnableTacticalReloadAll;
-			else if (settingName == "bEnableTacticalReloadAnim")
-				flag = MSF_MainData::bEnableTacticalReloadAnim;
-			else if (settingName == "bEnableBCRSupport")
-				flag = MSF_MainData::bEnableBCRSupport;
 			else if (settingName == "bReloadCompatibilityMode")
 				flag = MSF_MainData::bReloadCompatibilityMode;
 			else if (settingName == "bDisplayChamberedAmmoOnHUD")
@@ -1170,6 +1188,40 @@ namespace MSF_Data
 				flag = MSF_MainData::bShowEquippedAmmo;
 			else if (settingName == "bLowerWeaponAfterSprint")
 				flag = MSF_MainData::bLowerWeaponAfterSprint;
+
+
+			else if (settingName == "bEnableBCRSupport") //bEnableBCRSupport
+			{
+				flag = MSF_MainData::bEnableBCRSupport;
+				if (!(MSF_MainData::MCMSettingFlags & MSF_MainData::bEnableBCRSupport) && flagValue)
+					MSF_MainData::BCRinterfaceHolder.Enable();
+				else if ((MSF_MainData::MCMSettingFlags & MSF_MainData::bEnableBCRSupport) && !flagValue)
+					MSF_MainData::BCRinterfaceHolder.Disable();
+			}
+			else if (settingName == "bEmptyClipBeforeSwitch")
+				flag = MSF_MainData::bEmptyClipBeforeSwitch;
+			else if (settingName == "bPlayFeedbackSoundAmmo")
+				flag = MSF_MainData::bPlayFeedbackSoundAmmo;
+			else if (settingName == "bPlayFeedbackSoundAmmoFail")
+				flag = MSF_MainData::bPlayFeedbackSoundAmmoFail;
+			else if (settingName == "bPlayFeedbackSoundMod")
+				flag = MSF_MainData::bPlayFeedbackSoundMod;
+			else if (settingName == "bPlayFeedbackSoundModWithoutAnim")
+				flag = MSF_MainData::bPlayFeedbackSoundModWithoutAnim;
+			else if (settingName == "bPlayFeedbackSoundModFail")
+				flag = MSF_MainData::bPlayFeedbackSoundModFail;
+			else if (settingName == "bPlayFeedbackSoundMenuOpen")
+				flag = MSF_MainData::bPlayFeedbackSoundMenuOpen;
+			else if (settingName == "bPlayFeedbackSoundMenuFail")
+				flag = MSF_MainData::bPlayFeedbackSoundMenuFail;
+			else if (settingName == "bEnableTacticalReloadChamber") //bEnableTacticalReloadAll
+				flag = MSF_MainData::bEnableTacticalReloadChamber;
+			else if (settingName == "bEnableTacticalReloadAnim")
+				flag = MSF_MainData::bEnableTacticalReloadAnim;
+			else if (settingName == "bEnableExtraWeaponState") //bEnableAmmoSaving
+				flag = MSF_MainData::bEnableExtraWeaponState; 
+			else if (settingName == "bPatchVanillaAVcalculation")
+				flag = MSF_MainData::bPatchVanillaAVcalculation;
 			else
 				return false;
 
@@ -2008,6 +2060,7 @@ namespace MSF_Data
 								modData->attachParentValue = apValue;
 								modData->flags = apflags;
 							}
+							modData->successSound = itKb->successSound;
 							const Json::Value& modCycles = modStruct["modArrays"];
 							if (modCycles.isArray())
 							{
@@ -2366,6 +2419,19 @@ namespace MSF_Data
 						}
 					}
 				}
+
+				data1 = json["failSound"];
+				if (data1.isString())
+				{
+					std::string str = data1.asString();
+					if (str != "")
+					{
+						BGSSoundDescriptorForm* sound = DYNAMIC_CAST(Utilities::GetFormFromIdentifier(str), TESForm, BGSSoundDescriptorForm);
+						if (sound)
+							MSF_MainData::failSound = sound;
+					}
+				}
+
 				return true;
 			}
 		}
@@ -2382,6 +2448,7 @@ namespace MSF_Data
 		_MESSAGE("");
 		_MESSAGE("storedDATA:");
 		_MESSAGE("ammoAP: %04X", MSF_MainData::ammoAP);
+		_MESSAGE("failSound: %04X", MSF_MainData::failSound->formID);
 		_MESSAGE("MCM settings: %04X", MSF_MainData::MCMSettingFlags);
 		for (std::unordered_map<TESAmmo*, AmmoData*>::iterator it = MSF_MainData::ammoDataMap.begin(); it != MSF_MainData::ammoDataMap.end(); it++)
 		{
@@ -3214,7 +3281,7 @@ namespace MSF_Data
 		TESAmmo* baseAmmo = *ammo;
 		*ammo = nullptr;
 		UInt32 chance = 0;
-		if (baseAmmo && (MSF_MainData::MCMSettingFlags & MSF_MainData::bSpawnRandomAmmo))
+		if (baseAmmo && (MSF_MainData::MCMSettingFlags & (MSF_MainData::bSpawnRandomAmmo | MSF_MainData::bReplaceAmmoWithSpawned)))
 		{
 			auto itAD = MSF_MainData::ammoDataMap.find(baseAmmo);
 			if (itAD != MSF_MainData::ammoDataMap.end())

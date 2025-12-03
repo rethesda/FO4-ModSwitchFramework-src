@@ -63,8 +63,8 @@ ExtraWeaponState::~ExtraWeaponState()
 
 ExtraWeaponState* ExtraWeaponState::Init(ExtraDataList* extraDataList, EquipWeaponData* equipData)
 {
-	//if (!(MSF_MainData::MCMSettingFlags & MSF_MainData::mMakeExtraRankMask))
-	//	return nullptr;
+	if (!(MSF_MainData::MCMSettingFlags & MSF_MainData::mMakeExtraRankMask))
+		return nullptr;
 	//_DEBUG("WS_init");
 	if (!extraDataList) // || !equipData || !equipData->ammo
 		return nullptr;
@@ -463,7 +463,7 @@ bool ExtraWeaponState::HandleEquipEvent(ExtraDataList* extraDataList, EquipWeapo
 			equipData->loadedAmmoCount = this->currentState->loadedAmmo;
 		this->currentState->flags |= MSF_Data::InstanceHasBCRSupport(currInstanceData) << 5;
 		this->currentState->flags |= MSF_Data::InstanceHasTRSupport(currInstanceData) << 4;
-		if ((this->currentState->flags & WeaponState::bHasBCR) && (this->currentState->flags & WeaponState::bHasTacticalReload))
+		if ((this->currentState->flags & WeaponState::bHasBCR) && (this->currentState->flags & WeaponState::bHasTacticalReload) && (MSF_MainData::MCMSettingFlags & MSF_MainData::bEnableTacticalReloadChamber))
 			MSF_MainData::BCRinterfaceHolder.SetBCRammoCap(this->currentState->ammoCapacity + 1);
 		//set BCR ammoCount?
 		_DEBUG("eq: %i, stored: %i", equipData->loadedAmmoCount, this->currentState->loadedAmmo);
@@ -589,7 +589,7 @@ bool ExtraWeaponState::HandleReloadEvent(ExtraDataList* extraDataList, EquipWeap
 			UInt32 ammoToUse = Utilities::GetInventoryItemCount((*g_player)->inventoryList, this->currentState->equippedAmmo);
 			if (ammoToUse > currInstanceData->ammoCapacity)
 				ammoToUse = currInstanceData->ammoCapacity;
-			if ((MSF_Data::InstanceHasTRSupport(currInstanceData) || this->currentState->flags & ExtraWeaponState::WeaponState::bHasTacticalReload) && (eventType != ExtraWeaponState::bEventTypeReloadAfterSwitch))
+			if ((MSF_Data::InstanceHasTRSupport(currInstanceData) || this->currentState->flags & ExtraWeaponState::WeaponState::bHasTacticalReload) && (eventType != ExtraWeaponState::bEventTypeReloadAfterSwitch) && MSF_MainData::MCMSettingFlags & MSF_MainData::bEnableTacticalReloadChamber)
 				equipData->loadedAmmoCount = ammoToUse + (oldLoadedAmmoCount < this->currentState->chamberedCount ? oldLoadedAmmoCount : this->currentState->chamberedCount); //currInstanceData->ammoCapacity +
 			this->currentState->chamberedCount = equipData->loadedAmmoCount < this->currentState->chamberSize ? equipData->loadedAmmoCount : this->currentState->chamberSize;
 		}
@@ -748,16 +748,15 @@ TESAmmo* ExtraWeaponState::GetEquippedAmmo()
 		return nullptr;
 }
 
-ExtraWeaponState::AmmoStateData* ExtraWeaponState::GetAmmoStateData()
+bool ExtraWeaponState::GetAmmoStateData(ExtraWeaponState::AmmoStateData* data)
 {
-	if (!this->currentState)
-		return nullptr;
-	AmmoStateData data;
-	data.ammoCapacity = this->currentState->ammoCapacity;
-	data.chamberedCount = this->currentState->chamberedCount;
-	data.chamberSize = this->currentState->chamberSize;
-	data.loadedAmmo = this->currentState->loadedAmmo;
-	return &data;
+	if (!data || !this->currentState)
+		return false;
+	data->ammoCapacity = this->currentState->ammoCapacity;
+	data->chamberedCount = this->currentState->chamberedCount;
+	data->chamberSize = this->currentState->chamberSize;
+	data->loadedAmmo = this->currentState->loadedAmmo;
+	return true;
 }
 
 UInt8 ExtraWeaponState::HasNotSupportedAmmo()

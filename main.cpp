@@ -187,6 +187,8 @@ bool WriteHooks()
 	AttackInputHandler_Copied = HookUtil::GetFnPtrFromCall5(AttackInputHandler_HookTarget.GetUIntPtr(), &AttackInputHandler_Hook);
 	ObjectInstanceCtor_Copied = HookUtil::GetFnPtrFromCall5(ObjectInstanceCtor_HookTarget.GetUIntPtr(), &ObjectInstanceCtor_Hook);
 	ActorEquipManagerPre_Copied = HookUtil::GetFnPtrFromCall6(ActorEquipManagerPre_JumpHookTarget.GetUIntPtr());
+	AttachRemoveModInternal_Copied = HookUtil::GetFnPtrFromCall5(AModToInvItem_Attach_AV_HookTarget.GetUIntPtr(), &AttachRemoveModInternal_Hook);
+	EquipItemPapyrus_Copied = HookUtil::GetFnPtrFromCall5(AModToInvItem_Equip_AV_HookTarget.GetUIntPtr(), &EquipItemPapyrus_Hook);
 
 	uint32_t res = CheckHookCopies();
 	if (res)
@@ -389,6 +391,8 @@ bool WriteHooks()
 	g_branchTrampoline.Write5Call(DeleteExtraData_CallFromWorkbenchUI_HookTarget.GetUIntPtr(), (uintptr_t)DeleteExtraData_CallFromWorkbenchUI_Hook);
 	g_branchTrampoline.Write5Call(UpdateEquipData_HookTarget.GetUIntPtr(), (uintptr_t)UpdateEquipData_Hook);
 	g_branchTrampoline.Write5Call(ObjectInstanceCtor_HookTarget.GetUIntPtr(), (uintptr_t)ObjectInstanceCtor_Hook);
+	g_branchTrampoline.Write5Call(AModToInvItem_Attach_AV_HookTarget.GetUIntPtr(), (uintptr_t)AttachRemoveModInternal_Hook);
+	g_branchTrampoline.Write5Call(AModToInvItem_Equip_AV_HookTarget.GetUIntPtr(), (uintptr_t)EquipItemPapyrus_Hook);
 
 	res = CheckHookTargets();
 	if (res)
@@ -435,7 +439,9 @@ bool InitPlugin(const F4SEInterface* f4se)
 {
 	gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Fallout4\\F4SE\\ModSwitchFramework.log");
 	_MESSAGE("%s v%s dll loaded...\n", PLUGIN_NAME_SHORT, MSF_VERSION_STRING);
-#ifdef NEXTGEN
+#if CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 11, 137) 
+	_MESSAGE("Anniversary Edition (NextGen) version\n");
+#elif defined(NEXTGEN)
 	_MESSAGE("NextGen version\n");
 #endif
 	_MESSAGE("Runtime version: %08X", f4se->runtimeVersion);

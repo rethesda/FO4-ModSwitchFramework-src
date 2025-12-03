@@ -468,6 +468,40 @@ namespace MSF_Papyrus
 		return result;
 	}
 
+	VMArray<TESAmmo*> GetAmmoTypesForBaseAmmo(StaticFunctionTag*, TESAmmo* baseAmmo)
+	{
+		VMArray<TESAmmo*> result;
+		if (!baseAmmo)
+			return result;
+		auto itAD = MSF_MainData::ammoDataMap.find(baseAmmo);
+		if (itAD != MSF_MainData::ammoDataMap.end())
+		{
+			AmmoData* itAmmoData = itAD->second;
+			for (auto itAmmoMod : itAmmoData->ammoMods)
+				result.Push(&itAmmoMod.ammo);
+		}
+		return result;
+	}
+
+	BGSMod::Attachment::Mod* GetModForAmmo(StaticFunctionTag*, TESAmmo* baseAmmo, TESAmmo* ammo)
+	{
+		if (!baseAmmo || !ammo)
+			return nullptr;
+		auto itAD = MSF_MainData::ammoDataMap.find(baseAmmo);
+		if (itAD != MSF_MainData::ammoDataMap.end())
+		{
+			if (baseAmmo == ammo)
+				return itAD->second->baseAmmoData.mod;
+			AmmoData* itAmmoData = itAD->second;
+			for (auto itAmmoMod : itAmmoData->ammoMods)
+			{
+				if (itAmmoMod.ammo = ammo)
+					return itAmmoMod.mod;
+			}
+		}
+		return nullptr;
+	}
+
 	TESObjectWEAP* GetEquippedWeapon(StaticFunctionTag*, Actor* ownerActor)
 	{
 		return Utilities::GetEquippedWeapon(ownerActor);
@@ -565,6 +599,10 @@ void MSF_Papyrus::RegisterFuncs(VirtualMachine* vm)
 		new NativeFunction1 <StaticFunctionTag, BGSKeyword*, BGSMod::Attachment::Mod*>("GetModAttachParent", SCRIPTNAME, GetModAttachParent, vm));
 	vm->RegisterFunction(
 		new NativeFunction1 <StaticFunctionTag, TESObjectWEAP*, Actor*>("GetEquippedWeapon", SCRIPTNAME, GetEquippedWeapon, vm));
+	vm->RegisterFunction(
+		new NativeFunction1 <StaticFunctionTag, VMArray<TESAmmo*>, TESAmmo*>("GetAmmoTypesForBaseAmmo", SCRIPTNAME, GetAmmoTypesForBaseAmmo, vm));
+	vm->RegisterFunction(
+		new NativeFunction2 <StaticFunctionTag, BGSMod::Attachment::Mod*, TESAmmo*, TESAmmo*>("GetModForAmmo", SCRIPTNAME, GetModForAmmo, vm));
 	vm->RegisterFunction(
 		new NativeFunction1 <StaticFunctionTag, bool, TESIdleForm*>("PlayIdleWithBlend", SCRIPTNAME, PlayIdleWithBlend, vm));
 

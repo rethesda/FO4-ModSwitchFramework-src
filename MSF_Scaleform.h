@@ -69,6 +69,10 @@ public:
 #ifndef NEXTGEN
 	DEFINE_MEMBER_FN_1(GetSelectedForm, TESForm*, 0x1A3740, UInt32& handleID);
 	DEFINE_MEMBER_FN_1(GetSelectedItem, BGSInventoryItem*, 0x1A3650, UInt32& handleID);
+	
+#elif CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 11, 137) 
+	DEFINE_MEMBER_FN_1(GetSelectedForm, TESForm*, 0x344B40, UInt32& handleID);
+	DEFINE_MEMBER_FN_1(GetSelectedItem, BGSInventoryItem*, 0x344980, UInt32& handleID);
 #else
 	//DEFINE_MEMBER_FN_1(GetSelectedForm, TESForm*, 0x2F36B0, UInt32& handleID); 2194011
 	//DEFINE_MEMBER_FN_1(GetSelectedItem, BGSInventoryItem*, 0x2F34F0, UInt32& handleID); 2194009

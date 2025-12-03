@@ -622,6 +622,7 @@ namespace Utilities
 	bool HasKeyword(BGSKeywordForm* keywordForm, BGSKeyword* checkKW);
 	bool UpdateAimModel(MSFAimModel* oldModel, MSFAimModel* newModel);
 	bool UpdateZoomData(MSFZoomData* oldData, MSFZoomData* newData);
+	UInt32 PlaySoundInternal(BGSSoundDescriptorForm* sound, TESObjectREFR* target);
 	bool PlayIdle(Actor* actor, TESIdleForm* idle);
 	bool PlayIdleAction(Actor* actor, BGSAction* action);
 	void DrawWeapon(Actor* actor);
@@ -778,7 +779,8 @@ private:
 };
 
 typedef void(*_AttachModToInventoryItem)(VirtualMachine* vm, UInt32 stackId, TESObjectREFR* objRef, TESForm* invItem, BGSMod::Attachment::Mod* mod, bool unkbool);
-typedef void(*_AttachRemoveModInternal)(Actor* actor, TESBoundObject* baseItem, CheckStackIDFunctor* CheckStackIDFunctor, StackDataWriteFunctor* ModifyModDataFunctor, UInt8 arg_unk28, void** weapbaseMf0, UInt8 unk_FFor0, BGSMod::Attachment::Mod* mod);
+typedef void(*_AttachRemoveModInternal)(Actor* actor, TESBoundObject* baseItem, CheckStackIDFunctor* CheckStackIDFunctor, StackDataWriteFunctor* ModifyModDataFunctor, void* arg_1, void* arg_2, void* arg_3, void* arg_4, void* arg_5, void* arg_6, void* arg_7);
+typedef void(*_EquipItemPapyrus)(Actor* actor, TESBoundObject* baseItem, UInt32 r8d);
 typedef bool(*_AttachModToStack)(BGSInventoryItem* invItem, CheckStackIDFunctor* IDfunctor, StackDataWriteFunctor* modFuntor, UInt32 unk_r9d, UInt32* unk_rsp20); //, UInt32 unk_rsp50
 typedef bool(*_ModifyStackData)(BGSInventoryItem* invItem, BGSInventoryItem::Stack** stack, StackDataWriteFunctor* modFuntor);
 typedef bool(*_UpdMidProc)(Actor::AIProcess* midProc, Actor* actor, BGSObjectInstance weaponBaseStruct, BGSEquipSlot* equipSlot);
@@ -823,6 +825,8 @@ typedef SInt32(*_GetAnimationVariableInt)(VirtualMachine* vm, UInt32 stackId, TE
 typedef float(*_GetAnimationVariableFloat)(VirtualMachine* vm, UInt32 stackId, TESObjectREFR* ref, BSFixedString asVariableName);
 typedef bool(*_PlayIdle)(VirtualMachine* vm, UInt32 stackId, Actor* actor, TESIdleForm* idle);
 typedef bool(*_PlayIdle2)(Actor* actor, TESIdleForm* idle, UInt64 unk, VirtualMachine* vm, UInt32 stackId);
+typedef UInt32(*_PlaySoundVM)(VirtualMachine* vm, UInt32 stackId, BGSSoundDescriptorForm* sound, TESObjectREFR* ref);
+typedef UInt32(*_PlaySoundInt)(BGSSoundDescriptorForm* sound, TESObjectREFR* ref);
 typedef bool(*_PlayIdleAction)(Actor* actor, BGSAction* action, TESObjectREFR* target, VirtualMachine* vm, UInt32 stackId);
 typedef void(*_PlaySubgraphAnimation)(VirtualMachine* vm, UInt32 stackId, Actor* target, BSFixedString asEventName);
 typedef bool(*_InitializeActorInstant)(Actor* actor, UInt32 edx);
@@ -872,6 +876,8 @@ extern RelocAddr <_GetAnimationVariableInt> GetAnimationVariableIntInternal;
 extern RelocAddr <_GetAnimationVariableFloat> GetAnimationVariableFloatInternal;
 extern RelocAddr <_PlayIdle> PlayIdleInternal; //0x13863A0
 extern RelocAddr <_PlayIdle2> PlayIdleInternal2;
+extern RelocAddr <_PlaySoundVM> PlaySoundVM;
+extern RelocAddr <_PlaySoundInt> PlaySoundInt;
 extern RelocAddr <_PlayIdleAction> PlayIdleActionInternal; //0x13864A0 
 extern RelocAddr <_PlaySubgraphAnimation> PlaySubgraphAnimationInternal; //0x138A130
 extern RelocAddr <_InitializeActorInstant> InitializeActorInstant;
@@ -888,6 +894,8 @@ extern RelocAddr <_EjectShellCasing> EjectShellCasing;
 extern RelocAddr <_ReloadWeapon> ReloadWeaponInternal;
 extern RelocAddr <_ShowNotification> ShowNotification;
 extern RelocAddr <_GetKeywordFromValueArray> GetKeywordFromValueArray;
+extern RelocAddr <_AttachRemoveModInternal> AttachRemoveModInternal;
+extern RelocAddr <_EquipItemPapyrus> EquipItemPapyrus;
 extern RelocAddr <_AttachModToInventoryItem> AttachModToInventoryItem_Internal;
 extern RelocAddr <_AttachModToStack> AttachRemoveModStack;
 extern RelocAddr <_ModifyStackData> ModifyStackData;

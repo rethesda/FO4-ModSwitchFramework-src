@@ -26,10 +26,13 @@ namespace MSF_Base
 	void SpawnRandomMods(TESObjectCELL* cell);
 	bool EquipAmmo(BGSInventoryList* invList, TESAmmo* ammo);
 	UInt8 IsNotSupportedAmmo(TESAmmo* ammo);
+	void PatchActorValues(TESObjectREFR* ref, TESObjectWEAP::InstanceData* newInstance, std::vector<TBO_InstanceData::ValueModifier>* avifValues);
+	void GetActorValues(TESObjectWEAP::InstanceData* instance, std::vector<TBO_InstanceData::ValueModifier>* avifValues);
 
 	bool ReloadWeapon(bool full, bool clearAmmoCount = false, bool forced = true, bool isSwitch = true);
 	bool DrawWeapon();
 	bool PlayAnim(AnimationData* animData);
+	bool PlayFeedbackSound(bool play, bool fail, BGSSoundDescriptorForm* success);
 }
 
 extern const char* modText;

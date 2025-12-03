@@ -81,7 +81,8 @@ void HandleInputEvent(ButtonEvent * inputEvent)
 				//MSFMenu::OpenMenu();
 				//MSF_Test::ListEquippedItemTypes();
 				//MSF_Test::ArmorAttachTest();
-				//MSF_Test::RemapAnimTest(); //sub_141387BE0
+				//MSF_Test::RemapAnimTest(true, false); //sub_141387BE0
+				Utilities::PlaySoundInternal(MSF_MainData::failSound, *g_player);
 				//Utilities::PlayIdleAction(*g_player, (BGSAction*)LookupFormByID(0x3B248));
 				//Utilities::PlayIdle(*g_player, MSF_MainData::fireIdle1stP);
 				//MSF_Base::BurstTest(nullptr);
@@ -102,7 +103,7 @@ void HandleInputEvent(ButtonEvent * inputEvent)
 				//MSF_Test::PrintAmmoCount();
 				//MSF_Test::AIM_ZM_MA_testDump();
 				//MSF_Test::ProjectileTest();
-				Utilities::PlayIdleAction(*g_player, (BGSAction*)LookupFormByID(0x13454));
+				//Utilities::PlayIdleAction(*g_player, (BGSAction*)LookupFormByID(0x13454));
 				//MSF_Test::ModTemplateTest();
 
 				_DEBUG("test1");
@@ -124,8 +125,9 @@ void HandleInputEvent(ButtonEvent * inputEvent)
 				//MSF_Test::TestIdle(false);
 				//MSF_Test::DumpActorAnimData();
 				//MSF_Test::TestEquipAmmo();
-				Utilities::PlayIdleAction(*g_player, (BGSAction*)LookupFormByID(0x13455));
+				//Utilities::PlayIdleAction(*g_player, (BGSAction*)LookupFormByID(0x13455));
 				//MSF_Data::PatchBaseAmmoMods();
+				MSF_Test::RemapAnimTest(true, true);
 				_DEBUG("test2");
 			}
 		}
@@ -144,8 +146,9 @@ void HandleInputEvent(ButtonEvent * inputEvent)
 				//Utilities::FireWeapon(*g_player, 1);
 				//MSF_Test::DumpActorAnimData();
 				//MSF_Test::DumpEquippedWeaponIdx();
-				Utilities::PlayIdleAction(*g_player, (BGSAction*)LookupFormByID(0x13456));
+				//Utilities::PlayIdleAction(*g_player, (BGSAction*)LookupFormByID(0x13456));
 				//MSF_Test::ProjectileTest();
+				MSF_Test::RemapAnimTest(false, true);
 				_DEBUG("test3");
 			}
 		}
@@ -324,6 +327,7 @@ void PipboyMenuInvoke_Hook(PipboyMenu* menu, PipboyMenu::ScaleformArgs* args)
 			if (pipboyValueHandle != nullptr)
 			{
 				UInt32 handleID = pipboyValueHandle->value;
+				//_DEBUG("id ok");
 				auto* pSelectedData = (*g_itemMenuDataMgr)->GetSelectedItem(handleID);
 				UInt32 stackID = 0;
 				//_DEBUG("selected ok: %p", pSelectedData);
@@ -342,7 +346,8 @@ void PipboyMenuInvoke_Hook(PipboyMenu* menu, PipboyMenu::ScaleformArgs* args)
 					if (!selectedStack)
 						return;
 					ExtraDataList* extraDataList = selectedStack->extraData;
-					ExtraWeaponState::AmmoStateData* ammoState = nullptr;
+					ExtraWeaponState::AmmoStateData ammoState;
+					bool hasAmmoState = false;
 					UInt8 notSupportedAmmo = 0;
 					if (extraDataList)
 					{
@@ -352,7 +357,7 @@ void PipboyMenuInvoke_Hook(PipboyMenu* menu, PipboyMenu::ScaleformArgs* args)
 							ExtraWeaponState* extraState = MSF_MainData::weaponStateStore.Get(holder->rank);
 							if (extraState)
 							{
-								ammoState = extraState->GetAmmoStateData();
+								hasAmmoState = extraState->GetAmmoStateData(&ammoState);
 								notSupportedAmmo = extraState->HasNotSupportedAmmo();
 							}
 						}
@@ -364,10 +369,10 @@ void PipboyMenuInvoke_Hook(PipboyMenu* menu, PipboyMenu::ScaleformArgs* args)
 							//auto* pWeapon = (TESObjectWEAP::InstanceData*)Runtime_DynamicCast(neededInst, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData);
 							//if (pWeapon)
 							//{
-							if (ammoState && ammoState->ammoCapacity && (MSF_MainData::MCMSettingFlags & MSF_MainData::bDisplayMagInPipboy) && !notSupportedAmmo)
+							if (hasAmmoState && ammoState.ammoCapacity && (MSF_MainData::MCMSettingFlags & MSF_MainData::bDisplayMagInPipboy) && !notSupportedAmmo)
 							{
 								//_DEBUG("creating items");
-								std::string displayString = std::to_string(ammoState->ammoCapacity) + "/" + std::to_string(ammoState->loadedAmmo);
+								std::string displayString = std::to_string(ammoState.ammoCapacity) + "/" + std::to_string(ammoState.loadedAmmo);
 								menu->CreateItemData(args, "Mag Size/Loaded", displayString);
 							}
 							//if (ammoState && ammoState->ammoCapacity && (MSF_MainData::MCMSettingFlags & MSF_MainData::bDisplayChamberInPipboy))

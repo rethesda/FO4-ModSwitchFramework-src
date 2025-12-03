@@ -132,6 +132,7 @@ public:
 	UInt16 attachParentValue;
 	UInt16 flags;
 	Mod::AttachRequirements* APattachRequirements;
+	BGSSoundDescriptorForm* successSound;
 	std::unordered_map<KeywordValue, ModCycle*> modCycleMap; //hash: attachparent mod's instantiation keyword value, bucket: modcycle; if multiple cycles are found ambiuguity error is thrown
 };
 
@@ -218,6 +219,7 @@ public:
 	UInt16 keyCode;
 	UInt8 modifiers;
 	ModSelectionMenu* selectMenu;
+	BGSSoundDescriptorForm* successSound;
 	ModData* modData;
 	std::vector<KeywordValue> menuAttachPoints;
 };
@@ -306,6 +308,7 @@ public:
 		LooseModToAdd = nullptr;
 		animFlavor = 0;
 		animData = nullptr;
+		soundToPlay = nullptr;
 	};
 	~SwitchData()
 	{
@@ -317,6 +320,7 @@ public:
 		LooseModToAdd = nullptr;
 		animFlavor = 0;
 		animData = nullptr;
+		soundToPlay = nullptr;
 	}
 	enum
 	{
@@ -349,6 +353,7 @@ public:
 	TESObjectMISC* LooseModToRemove;
 	TESObjectMISC* LooseModToAdd;
 	AnimationData* animData;
+	BGSSoundDescriptorForm* soundToPlay;
 };
 
 class ModSwitchManager
@@ -625,6 +630,7 @@ public:
 	static UInt64 DEBUGprintStoredDataHotkey;
 	static Utilities::Timer lowerTmr;
 	static long long lowerDelay;
+	static BGSSoundDescriptorForm* failSound;
 
 	static BurstModeManager* activeBurstManager;
 
@@ -691,7 +697,7 @@ public:
 	static BGSAction* ActionGunDown;
 
 	//MCM data (read on init and on update)
-	enum
+	enum : UInt64
 	{
 		bReloadEnabled = 0x00000100,
 		bDrawEnabled = 0x00000200,
@@ -711,8 +717,8 @@ public:
 		bShowQuickkeySelection = 0x00000080,
 		bShowUnavailableMods = 0x40000000,
 		bEnableMetadataSaving = 0x00010000,
-		bEnableAmmoSaving = 0x00020000,
-		bEnableTacticalReloadAll = 0x00040000,
+		bEnableExtraWeaponState = 0x00020000,
+		bEnableTacticalReloadChamber = 0x00040000,
 		bEnableTacticalReloadAnim = 0x00080000,
 		bEnableBCRSupport = 0x00100000,
 		bReloadCompatibilityMode = 0x00200000,
@@ -724,10 +730,19 @@ public:
 		bDisplayChamberInPipboy = 0x08000000,
 		bDisableAutomaticReload = 0x10000000,
 		bLowerWeaponAfterSprint = 0x20000000,
-		bReplaceAmmoWithSpawned = 0x40000000,
-		mMakeExtraRankMask = bEnableAmmoSaving | bEnableTacticalReloadAll | bEnableTacticalReloadAnim | bEnableBCRSupport
+		bReplaceAmmoWithSpawned = 0x100000000,
+		bEmptyClipBeforeSwitch = 0x80000000,
+		bPlayFeedbackSoundAmmo = 0x200000000,
+		bPlayFeedbackSoundAmmoFail = 0x400000000,
+		bPlayFeedbackSoundMod = 0x800000000,
+		bPlayFeedbackSoundModWithoutAnim = 0x1000000000,
+		bPlayFeedbackSoundModFail = 0x2000000000,
+		bPlayFeedbackSoundMenuOpen = 0x4000000000,
+		bPlayFeedbackSoundMenuFail = 0x8000000000,
+		bPatchVanillaAVcalculation = 0x10000000000,
+		mMakeExtraRankMask = bEnableExtraWeaponState //| bEnableTacticalReloadAll | bEnableTacticalReloadAnim | bEnableBCRSupport
 	};
-	static UInt32 MCMSettingFlags;
+	static UInt64 MCMSettingFlags;
 	static UInt16 iMinRandomAmmo;
 	static UInt16 iMaxRandomAmmo;
 	static UInt16 iAutolowerTimeMS;
