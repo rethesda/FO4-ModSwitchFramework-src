@@ -56,6 +56,7 @@ BGSAction* MSF_MainData::ActionGunDown;
 BGSAction* MSF_MainData::ActionRightRelease;
 bool MSF_MainData::GameIsLoading = true;
 bool MSF_MainData::IsInitialized = false;
+bool MSF_MainData::PutYourGunInCompatibility = false;
 int MSF_MainData::iCheckDelayMS = 10;
 int MSF_MainData::quickKeyTimeoutMS = 300;
 UInt64 MSF_MainData::MCMSettingFlags = 0;
@@ -502,7 +503,9 @@ namespace MSF_Data
 								BGSObjectInstance idStruct;
 								idStruct.object = extraInstanceData->baseForm;
 								idStruct.instanceData = extraInstanceData->instanceData;
+								MSF_MainData::modSwitchManager.SetDontPutYourGunIn(true);
 								EquipItemInternal(g_ActorEquipManager, actorRef, idStruct, 0, 1, nullptr, 0, 0, 0, 1, 0);
+								MSF_MainData::modSwitchManager.SetDontPutYourGunIn(false);
 								MSF_Base::PatchActorValues(actorRef, (TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
 							}
 						}
@@ -1222,6 +1225,10 @@ namespace MSF_Data
 				flag = MSF_MainData::bEnableExtraWeaponState; 
 			else if (settingName == "bPatchVanillaAVcalculation")
 				flag = MSF_MainData::bPatchVanillaAVcalculation;
+			else if (settingName == "bRandomizeLoadedAmmoOnSplitStack")
+				flag = MSF_MainData::bRandomizeLoadedAmmoOnSplitStack;
+			else if (settingName == "bRandomizeLoadedAmmoOnNewWeapon")
+				flag = MSF_MainData::bRandomizeLoadedAmmoOnNewWeapon;
 			else
 				return false;
 

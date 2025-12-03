@@ -23,7 +23,7 @@ ExtraWeaponState::ExtraWeaponState(ExtraDataList* extraDataList, EquipWeaponData
 		this->holder = extraHolder;
 		extraDataList->Add(ExtraDataType::kExtraData_Rank, extraHolder);
 	}
-	this->UpdateWeaponStates(extraDataList, equipData, kEventTypeUndefined);
+	this->UpdateWeaponStates(extraDataList, equipData, kEventTypeCreate);
 }
 
 ExtraWeaponState::ExtraWeaponState(ExtraRank* extraHolder)
@@ -96,6 +96,42 @@ ExtraWeaponState* ExtraWeaponState::Init(ExtraDataList* extraDataList, EquipWeap
 	return new ExtraWeaponState(extraDataList, equipData);
 }
 
+ExtraWeaponState* ExtraWeaponState::Clone(ExtraRank* extraHolder, UInt8 changeAmmo)
+{
+	ExtraWeaponState* newExtraState = new ExtraWeaponState(extraHolder);
+	newExtraState->ID = MSF_MainData::weaponStateStore.Add(newExtraState);
+	extraHolder->rank = newExtraState->ID;
+	newExtraState->holder = extraHolder;
+	newExtraState->defaultStatePlaceholder = this->defaultStatePlaceholder;
+	for (auto itState : this->weaponStates)
+	{
+		WeaponState* newState = itState.second->Clone();
+		newExtraState->weaponStates.insert({ itState.first, newState });
+		if (itState.second == this->currentState)
+			newExtraState->currentState = newState;
+	}
+
+	if (this->currentState && (changeAmmo & 0x3))
+	{
+		UInt32 ammoCount = newExtraState->currentState->ammoCapacity;
+		if (changeAmmo & 0x4)
+			ammoCount = rand() % (ammoCount + 1);
+		ExtraWeaponState* weaponStateA = newExtraState;
+		if ((changeAmmo & 0x3) == 2)
+			weaponStateA = this;
+		weaponStateA->currentState->loadedAmmo = ammoCount;
+		if (weaponStateA->currentState->loadedAmmo < weaponStateA->currentState->chamberSize)
+			weaponStateA->currentState->chamberedCount = weaponStateA->currentState->loadedAmmo;
+		if ((weaponStateA->currentState->flags & WeaponState::bHasBCR) && weaponStateA->currentState->loadedAmmo != weaponStateA->currentState->BCRammo.size())
+		{
+			weaponStateA->currentState->BCRammo.clear();
+			for (UInt32 ammoIdx = 0; ammoIdx < weaponStateA->currentState->loadedAmmo; ammoIdx++)
+				weaponStateA->currentState->BCRammo.push_back(weaponStateA->currentState->chamberedAmmo);
+		}
+	}
+	return newExtraState;
+}
+
 ExtraWeaponState::WeaponState* ExtraWeaponState::WeaponState::Clone()
 {
 	WeaponState* newState = new WeaponState();
@@ -112,12 +148,12 @@ ExtraWeaponState::WeaponState* ExtraWeaponState::WeaponState::Clone()
 	return newState;
 }
 
-ExtraWeaponState::WeaponState::WeaponState(ExtraDataList* extraDataList, EquipWeaponData* equipData, ModData::Mod* currUniqueStateMod) //on load game: scan all extra rank, extra rank compare hook, equip hook, mod hook
+ExtraWeaponState::WeaponState::WeaponState(ExtraDataList* extraDataList, EquipWeaponData* equipData, ModData::Mod* currUniqueStateMod, UInt8 eventType) //on load game: scan all extra rank, extra rank compare hook, equip hook, mod hook
 {
-	this->FillData(extraDataList, equipData, currUniqueStateMod);
+	this->FillData(extraDataList, equipData, currUniqueStateMod, eventType);
 }
 
-bool ExtraWeaponState::WeaponState::FillData(ExtraDataList* extraDataList, EquipWeaponData* equipData, ModData::Mod* currUniqueStateMod)
+bool ExtraWeaponState::WeaponState::FillData(ExtraDataList* extraDataList, EquipWeaponData* equipData, ModData::Mod* currUniqueStateMod, UInt8 eventType)
 {
 	if (equipData)
 		this->loadedAmmo = equipData->loadedAmmoCount;
@@ -156,6 +192,8 @@ bool ExtraWeaponState::WeaponState::FillData(ExtraDataList* extraDataList, Equip
 		this->ammoCapacity = currInstanceData->ammoCapacity;
 		if (!equipData)
 			this->loadedAmmo = this->ammoCapacity;
+		if (eventType == ExtraWeaponState::kEventTypeCreate && MSF_MainData::MCMSettingFlags & MSF_MainData::bRandomizeLoadedAmmoOnNewWeapon)
+			this->loadedAmmo = rand() % (this->ammoCapacity + 1);
 		this->chamberedCount = this->loadedAmmo < this->chamberSize ? this->loadedAmmo : this->chamberSize;
 		if (MSF_Data::InstanceHasTRSupport(currInstanceData))
 			this->flags |= bHasTacticalReload;
@@ -390,7 +428,7 @@ bool ExtraWeaponState::UpdateWeaponStates(ExtraDataList* extraDataList, EquipWea
 	{
 		if (eventType != kEventTypeModdedWorkbench)
 		{
-			statechange.second = new ExtraWeaponState::WeaponState(extraDataList, equipData, currStateModData);
+			statechange.second = new ExtraWeaponState::WeaponState(extraDataList, equipData, currStateModData, eventType);
 			this->weaponStates[currStateMod] = statechange.second;
 			this->currentState = statechange.second;
 		}
@@ -598,14 +636,44 @@ bool ExtraWeaponState::HandleReloadEvent(ExtraDataList* extraDataList, EquipWeap
 	return true;
 }
 
-bool ExtraWeaponState::HandleModChangeEvent(ExtraDataList* extraDataList, std::vector<std::pair<BGSMod::Attachment::Mod*, bool>>* modsToModify, UInt8 eventType)
+bool ExtraWeaponState::HandleModChangeEvent(ExtraDataList* extraDataList, std::vector<std::pair<BGSMod::Attachment::Mod*, bool>>* modsToModify, UInt8 eventType, ExtraDataList* oldExtraDataList, UInt8 changeAmmo)
 {
 	if (!extraDataList || !modsToModify)
 		return false;
 
 	if (eventType != kEventTypeModdedWorkbench)
 	{
-		ExtraWeaponState* weaponState = ExtraWeaponState::Init(extraDataList, nullptr);
+		//ExtraWeaponState* weaponState = ExtraWeaponState::Init(extraDataList, nullptr);
+		ExtraWeaponState* weaponState = nullptr;
+		if (oldExtraDataList && oldExtraDataList != extraDataList)
+		{
+			ExtraRank* holder = (ExtraRank*)extraDataList->GetByType(kExtraData_Rank);
+			ExtraRank* oldHolder = (ExtraRank*)oldExtraDataList->GetByType(kExtraData_Rank);
+			ExtraWeaponState* oldWeaponState = MSF_MainData::weaponStateStore.Get(holder->rank);
+			if (oldHolder)
+			{
+				if (!holder && oldWeaponState)
+				{
+					ExtraRank* extraHolder = ExtraRank::Create(0);
+					extraDataList->Add(ExtraDataType::kExtraData_Rank, extraHolder);
+					weaponState = oldWeaponState->Clone(extraHolder, changeAmmo);
+				}
+				else if (holder && holder->rank == oldHolder->rank)
+				{
+					if (oldWeaponState)
+						weaponState = oldWeaponState->Clone(holder, changeAmmo);
+					else
+					{
+						oldHolder->rank = 0;
+						ExtraWeaponState::Init(oldExtraDataList, nullptr);
+					}
+				}
+				else if (!oldWeaponState)
+					ExtraWeaponState::Init(oldExtraDataList, nullptr);
+			}
+		}
+		if(!weaponState)
+			weaponState = ExtraWeaponState::Init(extraDataList, nullptr);
 		if (weaponState)
 		{
 			weaponState->UpdateWeaponStates(extraDataList, nullptr, eventType, modsToModify);

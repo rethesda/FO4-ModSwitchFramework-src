@@ -82,7 +82,6 @@ void HandleInputEvent(ButtonEvent * inputEvent)
 				//MSF_Test::ListEquippedItemTypes();
 				//MSF_Test::ArmorAttachTest();
 				//MSF_Test::RemapAnimTest(true, false); //sub_141387BE0
-				Utilities::PlaySoundInternal(MSF_MainData::failSound, *g_player);
 				//Utilities::PlayIdleAction(*g_player, (BGSAction*)LookupFormByID(0x3B248));
 				//Utilities::PlayIdle(*g_player, MSF_MainData::fireIdle1stP);
 				//MSF_Base::BurstTest(nullptr);
@@ -106,6 +105,8 @@ void HandleInputEvent(ButtonEvent * inputEvent)
 				//Utilities::PlayIdleAction(*g_player, (BGSAction*)LookupFormByID(0x13454));
 				//MSF_Test::ModTemplateTest();
 
+				//Utilities::PlaySoundInternal(MSF_MainData::failSound, *g_player);
+				MSF_Test::AttachStackTest(2, true);
 				_DEBUG("test1");
 			}
 		}
@@ -127,7 +128,8 @@ void HandleInputEvent(ButtonEvent * inputEvent)
 				//MSF_Test::TestEquipAmmo();
 				//Utilities::PlayIdleAction(*g_player, (BGSAction*)LookupFormByID(0x13455));
 				//MSF_Data::PatchBaseAmmoMods();
-				MSF_Test::RemapAnimTest(true, true);
+				//MSF_Test::RemapAnimTest(true, true);
+				MSF_Test::AttachStackTest(0, true);
 				_DEBUG("test2");
 			}
 		}
@@ -148,7 +150,8 @@ void HandleInputEvent(ButtonEvent * inputEvent)
 				//MSF_Test::DumpEquippedWeaponIdx();
 				//Utilities::PlayIdleAction(*g_player, (BGSAction*)LookupFormByID(0x13456));
 				//MSF_Test::ProjectileTest();
-				MSF_Test::RemapAnimTest(false, true);
+				//MSF_Test::RemapAnimTest(false, true);
+				MSF_Test::AttachStackTest(2, false);
 				_DEBUG("test3");
 			}
 		}
@@ -302,19 +305,31 @@ bool PipboyMenu::CreateItemData(PipboyMenu::ScaleformArgs* args, std::string tex
 	return true;
 }
 
+//void BarterInvoke_Hook(BarterMenu* menu, BarterMenu::ScaleformArgs* args) // B0A3A0 @ 2D1A7A0 barter, 2D1B140 contmenubase, 2D86420 contmenu
+//{
+//	BarterMenuInvoke_Copied(menu, args);
+//	if (args->optionID == 0x3 && &&args->numArgs == 4 && args->args[0].GetType() == GFxValue::kType_Int && args->args[1].GetType() == GFxValue::kType_Array && args->args[2].GetType() == GFxValue::kType_Array)//B0C3C0 @ B0A54B
+//}
+
 void PipboyMenuInvoke_Hook(PipboyMenu* menu, PipboyMenu::ScaleformArgs* args)
 {
+	//if (args->optionID == 0xE) // view
+	//	ignore
+	//if (args->optionID == 0x10) // drop
+	//	ignore
+	//+workbechview +modsplit
+	// changeammo
 	PipboyMenuInvoke_Copied(menu, args);
 	//(this->*Invoke_Original)(args);
-	//_DEBUG("pipboyei");
+	_DEBUG("pipboyei");
 	if (args->optionID == 0xD && args->numArgs == 4 && args->args[0].GetType() == GFxValue::kType_Int && args->args[1].GetType() == GFxValue::kType_Array && args->args[2].GetType() == GFxValue::kType_Array)
 	{
-		//_DEBUG("args ok");
+		_DEBUG("args ok");
 		SInt32 selectedIndex = args->args[0].GetInt();
 		PipboyObject* pHandlerData = nullptr;
 		if (selectedIndex >= 0 && selectedIndex < (*g_pipboyDataMgr)->itemData.count)
 			pHandlerData = (*g_pipboyDataMgr)->itemData[selectedIndex];
-		//_DEBUG("handler ok");
+		_DEBUG("handler ok");
 		if (pHandlerData != nullptr)
 		{
 			static BSFixedString handleName("handleID");
@@ -322,25 +337,26 @@ void PipboyMenuInvoke_Hook(PipboyMenu* menu, PipboyMenu::ScaleformArgs* args)
 
 			auto* pipboyValueHandle = static_cast<PipboyPrimitiveValue<UInt32>*>(pHandlerData->table.Find(&handleName)->value);
 			auto* pipboyValueStack = static_cast<PipboyArray*>(pHandlerData->table.Find(&stackName)->value);
-			//_DEBUG("values ok");
+			_DEBUG("values ok");
 			//auto* pipboyValue = static_cast<PipboyPrimitiveValue<UInt32>*>(pHandlerData->GetMemberValue(memberName));
 			if (pipboyValueHandle != nullptr)
 			{
 				UInt32 handleID = pipboyValueHandle->value;
-				//_DEBUG("id ok");
+				_DEBUG("id: %08X", handleID);
 				auto* pSelectedData = (*g_itemMenuDataMgr)->GetSelectedItem(handleID);
+				auto* pSelectedForm = (*g_itemMenuDataMgr)->GetSelectedForm(handleID);
 				UInt32 stackID = 0;
-				//_DEBUG("selected ok: %p", pSelectedData);
+				_DEBUG("selected: %p, %p", pSelectedData, pSelectedForm);
 				if (pipboyValueStack != nullptr && pipboyValueStack->values.entries)
 				{
 					auto* pipboyStackIDholder = static_cast<PipboyPrimitiveValue<UInt32>*>(*pipboyValueStack->values.entries);
 					stackID = pipboyStackIDholder->value;
-					//_DEBUG("stack ok");
+					_DEBUG("stack ok");
 				}
 
 				if (pSelectedData != nullptr && pSelectedData->form != nullptr)
 				{
-					//_DEBUG("adding items");
+					_DEBUG("adding items");
 					TESForm* pSelectedForm = pSelectedData->form;
 					BGSInventoryItem::Stack* selectedStack = Utilities::GetStack(pSelectedData, stackID);
 					if (!selectedStack)
@@ -371,7 +387,7 @@ void PipboyMenuInvoke_Hook(PipboyMenu* menu, PipboyMenu::ScaleformArgs* args)
 							//{
 							if (hasAmmoState && ammoState.ammoCapacity && (MSF_MainData::MCMSettingFlags & MSF_MainData::bDisplayMagInPipboy) && !notSupportedAmmo)
 							{
-								//_DEBUG("creating items");
+								_DEBUG("creating items");
 								std::string displayString = std::to_string(ammoState.ammoCapacity) + "/" + std::to_string(ammoState.loadedAmmo);
 								menu->CreateItemData(args, "Mag Size/Loaded", displayString);
 							}

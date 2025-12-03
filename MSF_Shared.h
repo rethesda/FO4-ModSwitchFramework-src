@@ -591,6 +591,7 @@ namespace Utilities
 	BGSObjectInstanceExtra* GetEquippedWeaponModData(Actor* ownerActor);
 	BGSInventoryItem::Stack* GetEquippedStack(Actor* owner, UInt32 slotIndex);
 	BGSInventoryItem::Stack* GetEquippedWeaponStack(Actor* owner);
+	BGSInventoryItem* GetEquippedInventoryWeapon(Actor* owner);
 	TESObjectWEAP* GetEquippedGun(Actor* ownerActor);
 	TESObjectWEAP* GetEquippedWeapon(Actor* ownerActor);
 	UInt8 GetEquippedWeaponSlotIndex(Actor* ownerActor);
@@ -790,6 +791,8 @@ typedef void(*_UpdateEnchantments)(Actor* actor, BGSObjectInstance BGSObjectInst
 typedef void(*_UpdateAVModifiers)(ActorStruct actorStruct, tArray<TBO_InstanceData::ValueModifier>* valueModifiers);
 typedef void(*_UpdateAnimValueFloat)(IAnimationGraphManagerHolder* animManager, void* dataHolder, float newValue);
 typedef bool(*_DeleteExtraData)(BSExtraData** extraDataHead, ExtraDataType type);
+typedef void (*_ExtraRankCtor)(ExtraDataList* parentList, UInt32 rank);
+typedef ExtraRank* (*_ExtraRankDtor)(ExtraRank* extra, bool cast);
 
 typedef BGSObjectInstanceExtra::Data*(*_CreateInstanceModsFromTemplate)(void* scrapHeap, void* rdx, TESObjectWEAP* templateWeap, void* r9);
 typedef BGSObjectInstanceExtra*(*_BGSObjectInstanceExtra_ctor)(BGSObjectInstanceExtra* allocatedHeap, BGSMod::Template::Item* templateItem, TESBoundObject* parentForm, void* instanceFilter);

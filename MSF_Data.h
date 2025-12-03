@@ -358,6 +358,8 @@ public:
 
 class ModSwitchManager
 {
+public:
+	volatile UInt16 dontPutYourGunIn;
 private:
 	volatile UInt16 ignoreAnimGraphUpdate;
 	volatile UInt16 ignoreDeleteExtraData;
@@ -367,6 +369,7 @@ private:
 	volatile UInt16 isBCRreload;
 	volatile UInt16 switchState;
 	volatile UInt16 forcedReload;
+	volatile UInt16 changeAmmo;
 	SimpleLock queueLock;
 	std::vector<SwitchData*> switchDataQueue;
 
@@ -415,6 +418,8 @@ public:
 		InterlockedExchange16((volatile short*)&isInPA, 0);
 		InterlockedExchange16((volatile short*)&shouldBlendAnimation, 0);
 		InterlockedExchange16((volatile short*)&forcedReload, 0);
+		InterlockedExchange16((volatile short*)&dontPutYourGunIn, 0);
+		InterlockedExchange16((volatile short*)&changeAmmo, 0);
 		ClearQuickSelection();
 	};
 	enum
@@ -436,6 +441,9 @@ public:
 	UInt16 GetIsBCRreload() { return isBCRreload; };
 	bool GetSetForcedReload() { return InterlockedCompareExchange16((volatile short*)&forcedReload, 0, 1); };
 	bool SetForcedReload(bool bForce) { return InterlockedExchange16((volatile short*)&forcedReload, bForce); };
+	void SetDontPutYourGunIn(bool bEquip) { InterlockedExchange16((volatile short*)&dontPutYourGunIn, bEquip); };
+	bool GetDontPutYourGunIn() { return dontPutYourGunIn; };
+	UInt8 GetSetChangeAmmo(UInt16 doChangeAmmo) { return InterlockedExchange16((volatile short*)&changeAmmo, doChangeAmmo); };
 	TESObjectWEAP::InstanceData* GetCurrentWeapon() { return equippedInstanceData; };
 	void SetCurrentWeapon(TESObjectWEAP::InstanceData* weaponInstance) { InterlockedExchangePointer((void* volatile*)&equippedInstanceData, weaponInstance); };
 	void IncOpenedMenus() { InterlockedIncrement16((volatile short*)&numberOfOpenedMenus); };
@@ -568,6 +576,8 @@ public:
 		InterlockedExchange16((volatile short*)&isBCRreload, 0);
 		InterlockedExchange16((volatile short*)&shouldBlendAnimation, 0);
 		InterlockedExchange16((volatile short*)&forcedReload, 0);
+		InterlockedExchange16((volatile short*)&dontPutYourGunIn, 0);
+		InterlockedExchange16((volatile short*)&changeAmmo, 0);
 		ClearQuickSelection();
 		quickKeyTimer.cancel();
 		lowerGunTimer.cancel();
@@ -608,6 +618,7 @@ class MSF_MainData
 public:
 	static bool IsInitialized;
 	static bool GameIsLoading;
+	static bool PutYourGunInCompatibility;
 
 	static RandomNumber rng;
 	static int iCheckDelayMS;
@@ -740,6 +751,8 @@ public:
 		bPlayFeedbackSoundMenuOpen = 0x4000000000,
 		bPlayFeedbackSoundMenuFail = 0x8000000000,
 		bPatchVanillaAVcalculation = 0x10000000000,
+		bRandomizeLoadedAmmoOnSplitStack = 0x20000000000,
+		bRandomizeLoadedAmmoOnNewWeapon = 0x40000000000,
 		mMakeExtraRankMask = bEnableExtraWeaponState //| bEnableTacticalReloadAll | bEnableTacticalReloadAnim | bEnableBCRSupport
 	};
 	static UInt64 MCMSettingFlags;

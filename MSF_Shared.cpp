@@ -563,6 +563,34 @@ namespace Utilities
 		return eqStack;
 	}
 
+	BGSInventoryItem* GetEquippedInventoryWeapon(Actor* owner)
+	{
+		BGSInventoryItem* eqItem = nullptr;
+		auto item = Utilities::GetEquippedWeapon(owner);
+		if (!item)
+			return nullptr;
+		if (!owner->inventoryList)
+			return nullptr;
+		for (UInt32 i = 0; i < owner->inventoryList->items.count; i++)
+		{
+			BGSInventoryItem* inventoryItem = &owner->inventoryList->items[i];
+			if (inventoryItem->form != item || !inventoryItem->stack)
+				continue;
+			bool ret = inventoryItem->stack->Visit([&](BGSInventoryItem::Stack* stack)
+				{
+					if (stack->flags & BGSInventoryItem::Stack::kFlagEquipped)
+					{
+						eqItem = inventoryItem;
+						return false;
+					}
+					return true;
+				});
+			if (!ret)
+				break;
+		}
+		return eqItem;
+	}
+
 	UInt32 GetStackID(BGSInventoryItem* item, BGSInventoryItem::Stack* stack) //equipped stack ID should always be 0 but check nevertheless
 	{
 		UInt32 IDcount = 0;
@@ -577,7 +605,7 @@ namespace Utilities
 
 	BGSInventoryItem::Stack* GetStack(BGSInventoryItem* item, UInt32 stackID)
 	{
-		if (!item)
+		if (!item || !item->stack)
 			return nullptr;
 		UInt32 IDcount = 0;
 		for (BGSInventoryItem::Stack* currStack = item->stack; currStack; currStack = currStack->next)

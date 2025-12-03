@@ -1,15 +1,20 @@
 ---
 v1.2.1
 features:
+- support for the Anniversary Update
 - included a patch for vanilla Actor Value calculation, which caused incorrect substraction of AVs when changing mods on equipped items (including the AttachModToInventoryItem papyrus function)
 - added GetModForAmmo and GetAmmoTypesForBaseAmmo Papyrus functions
+- added MCM options to randomize the loaded ammo count for newly equipped weapons and split stacks
 - added an MCM option to automatically set the clip counter to zero before ammo switching
 - added an MCM option to turn off TR animation support
 - added an MCM option to turn off TR chamber support
 - added an MCM option to turn off extra weapon state storage
 fixes:
 - fixed possible CTD when duplicate weapon state IDs were present
+- fixed bugs related to equipping, mod validation, and duplicate weapon states occuring when the equipped stack was split
+- added proper weapon state copy and cleanup protocol corresponding to ExtraRank cloning and destructor
 - the base ammo replacement option in the MCM will now correctly be independent of the spawn random ammo option
+- compatibility patch for the Put Your Gun In mod
 ---
 v1.2.0
 features:

@@ -465,13 +465,75 @@ namespace MSF_Base
 		return true;
 	}
 
+	void PrintStackData(Actor* actor, TESObjectWEAP* baseWeap)
+	{
+#ifndef DEBUG
+		return;
+#endif
+		if (!baseWeap)
+			return;
+		if (!actor || !actor->inventoryList)
+			return;
+		BipedAnim* equipData = actor->biped.get();
+		if (equipData)
+		{
+			auto modList = equipData->object[41].modExtra;
+			UInt32 modCount = 0;
+			if (modList && modList->data)
+				modCount = modList->data->blockSize / sizeof(BGSObjectInstanceExtra::Data::Form);
+			_MESSAGE("invItem: %p, eqInstance: %p, modList: %p, modCount: %i", Utilities::GetEquippedInventoryWeapon(actor), equipData->object[41].parent.instanceData, modList, modCount);
+		}
+		for (UInt32 i = 0; i < actor->inventoryList->items.count; i++)
+		{
+			BGSInventoryItem inventoryItem;
+			actor->inventoryList->items.GetNthItem(i, inventoryItem);
+			if (inventoryItem.form != baseWeap)
+				continue;
+			if (!inventoryItem.stack)
+				_MESSAGE("no stack");
+			_MESSAGE("invitem ID: %i", i);
+			UInt32 stackID = 0;
+			for (BGSInventoryItem::Stack* stack = inventoryItem.stack; stack; stack = stack->next)
+			{
+				if (!stack->extraData)
+				{
+					_MESSAGE("stackID: %i, count: %i, flags: %04X, stack: %p, no extra data", stackID, stack->count, stack->flags, stack);
+					continue;
+				}
+				BSExtraData* extraMods = stack->extraData->GetByType(kExtraData_ObjectInstance);
+				BGSObjectInstanceExtra* modList = DYNAMIC_CAST(extraMods, BSExtraData, BGSObjectInstanceExtra);
+				UInt32 modCount = 0;
+				if (modList && modList->data)
+					modCount = modList->data->blockSize / sizeof(BGSObjectInstanceExtra::Data::Form);
+				ExtraInstanceData* extraInstanceData = DYNAMIC_CAST(stack->extraData->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
+				TBO_InstanceData* iData = nullptr;
+				if (extraInstanceData)
+					iData = extraInstanceData->instanceData;
+				UInt32 weapStateID = 0;
+				ExtraRank* extraHolder = DYNAMIC_CAST(stack->extraData->GetByType(kExtraData_Rank), BSExtraData, ExtraRank);
+				if (extraHolder)
+					weapStateID = extraHolder->rank;
+				_MESSAGE("stackID: %i, count: %i, flags: %04X, stack: %p, extraList: %p, modList: %p, instance: %p, holder: %p, stateID: %i, modCount: %i", stackID, stack->count, stack->flags, stack, stack->extraData, modList, iData, extraHolder, weapStateID, modCount);
+				stackID++;
+			}
+		}
+
+	}
+
 	bool AttachModToEquippedWeapon(Actor* actor, BGSMod::Attachment::Mod* mod, bool bAttach, UInt8 modLoadedAmmoCount, bool updateAnimGraph)
 	{
 		_DEBUG("attach, updAnim: %02X", updateAnimGraph);
 		//BGSInventoryItem::Stack* stack = Utilities::GetEquippedStack(actor, 41);
-		BGSInventoryItem::Stack* stack = Utilities::GetEquippedWeaponStack(actor);
-		if (!stack)
+		//BGSInventoryItem::Stack* stack = Utilities::GetEquippedWeaponStack(actor);
+		BGSInventoryItem* eqItem = Utilities::GetEquippedInventoryWeapon(actor);
+		if (!eqItem || !eqItem->stack)
 			return false;
+		BGSInventoryItem::Stack* stack = eqItem->stack;
+		//for (BGSInventoryItem::Stack* istack = stack; stack; stack->next)
+		//{
+		//	if (stack->flags & BGSInventoryItem::Stack::kFlagEquipped)
+		//		stack = istack;
+		//}
 		ExtraDataList* dataList = stack->extraData;
 		if (!dataList)
 			return false;
@@ -492,19 +554,26 @@ namespace MSF_Base
 
 		_DEBUG("AcheckOK");
 
+		PrintStackData(actor, weapBase);
+
 		std::vector<TBO_InstanceData::ValueModifier> avifValues;
 		GetActorValues((TESObjectWEAP::InstanceData*)extraInstanceData->instanceData, &avifValues);
 
 		bool ret = false;
 
-		CheckStackIDFunctor IDfunctor(Utilities::GetStackID(item, stack));
+		CheckStackIDFunctor IDfunctor(0); //Utilities::GetStackID(item, stack)
 		ModifyModDataFunctor modFunctor(mod, 0, bAttach , &ret);
+		modFunctor.transferEquippedToSplitStack = true;
 
 		UInt32 unk = 0x00200000;
+		MSF_MainData::modSwitchManager.GetSetChangeAmmo((1 << (UInt8)modFunctor.transferEquippedToSplitStack) | (UInt16((MSF_MainData::MCMSettingFlags & MSF_MainData::bRandomizeLoadedAmmoOnSplitStack) / MSF_MainData::bRandomizeLoadedAmmoOnSplitStack) << 2));
 		AttachRemoveModStack(item, &IDfunctor, &modFunctor, 0, &unk);
+		MSF_MainData::modSwitchManager.GetSetChangeAmmo(0);
+		PrintStackData(actor, weapBase);
 
-		//ExtraDataList* newList = stack->extraData;
-		BSExtraData* newExtraMods = dataList->GetByType(kExtraData_ObjectInstance);
+		BGSInventoryItem::Stack* newStack = eqItem->stack;
+		ExtraDataList* newList = newStack->extraData;
+		BSExtraData* newExtraMods = newList->GetByType(kExtraData_ObjectInstance);
 		BGSObjectInstanceExtra* newModList = DYNAMIC_CAST(newExtraMods, BSExtraData, BGSObjectInstanceExtra);
 
 		std::vector<BGSMod::Attachment::Mod*> invalidMods;
@@ -516,9 +585,11 @@ namespace MSF_Base
 			unk = 0x00200000;
 			bool success = false;
 			ModifyModDataFunctor modifyModFunctor(invalidMod, 0, false, &success);
+			modifyModFunctor.shouldSplitStacks = false;
 			//MSF_MainData::modSwitchManager.SetIgnoreDeleteExtraData(true);
-			AttachRemoveModStack(item, &CheckStackIDFunctor(Utilities::GetStackID(item, stack)), &modifyModFunctor, 0, &unk);
+			AttachRemoveModStack(item, &CheckStackIDFunctor(0), &modifyModFunctor, 0, &unk); //Utilities::GetStackID(item, stack)
 		}
+		PrintStackData(actor, weapBase);
 
 		//BGSMod::Attachment::Mod* targetAmmoMod = nullptr;
 		//bool toAttach = false;
@@ -546,8 +617,9 @@ namespace MSF_Base
 		//	instanceData = (TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData);
 		//}
 
+		//get splitted stack; init a new rank/extrastate; do it with workbench & others
 		std::vector<std::pair<BGSMod::Attachment::Mod*, bool>> stateModsToModify;
-		ExtraWeaponState::HandleModChangeEvent(dataList, &stateModsToModify, ExtraWeaponState::kEventTypeModdedSwitch);
+		ExtraWeaponState::HandleModChangeEvent(newList, &stateModsToModify, ExtraWeaponState::kEventTypeModdedSwitch, dataList);
 		for (auto nextPair : stateModsToModify)
 		{
 			_DEBUG("target state/ammomod: %08X, rem: %02X", nextPair.first->formID, nextPair.second);
@@ -555,11 +627,14 @@ namespace MSF_Base
 			unk = 0x00200000;
 			bool success = false;
 			ModifyModDataFunctor modifyModFunctor(nextPair.first, 0, nextPair.second, &success);
+			modifyModFunctor.shouldSplitStacks = false;
 			//MSF_MainData::modSwitchManager.SetIgnoreDeleteExtraData(true);
-			AttachRemoveModStack(item, &CheckStackIDFunctor(Utilities::GetStackID(item, stack)), &modifyModFunctor, 0, &unk);
+			AttachRemoveModStack(item, &CheckStackIDFunctor(0), &modifyModFunctor, 0, &unk); //Utilities::GetStackID(item, stack)
 		}
 
-		extraInstanceData = DYNAMIC_CAST(dataList->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
+		PrintStackData(actor, weapBase);
+
+		extraInstanceData = DYNAMIC_CAST(newList->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
 		if (!extraInstanceData)
 			return false;
 		TESObjectWEAP::InstanceData* instanceData = (TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData);
@@ -571,7 +646,9 @@ namespace MSF_Base
 		//_DEBUG("mod ammo count1: %i", eqData->loadedAmmoCount);
 		MSF_MainData::modSwitchManager.SetModChangeEvent(true);
 		MSF_MainData::modSwitchManager.SetIgnoreAnimGraph(true);
+		MSF_MainData::modSwitchManager.SetDontPutYourGunIn(true);
 		EquipItemInternal(g_ActorEquipManager, actor, idStruct, 0, 1, nullptr, 0, 0, 0, 1, 0);
+		MSF_MainData::modSwitchManager.SetDontPutYourGunIn(false);
 
 		PatchActorValues(actor, instanceData, &avifValues);
 
@@ -628,7 +705,8 @@ namespace MSF_Base
 		if (updateAnimGraph)
 			UpdateAnimGraph(actor, false);
 		//UnkSub_DFE930(actor, false);
-
+		/*
+		PrintStackData(actor, weapBase);
 		for (UInt32 i = 0; i < actor->inventoryList->items.count; i++)
 		{
 			BGSInventoryItem inventoryItem;
@@ -648,14 +726,14 @@ namespace MSF_Base
 					bEquipped = true;
 				}
 			}
-		}
-
+		}*/
+		PrintStackData(actor, weapBase);
 		EquipWeaponData* newEqData = (EquipWeaponData*)actor->middleProcess->unk08->equipData[0].equippedData;
 		TESAmmo* newAmmoType = newEqData->ammo;
 		_DEBUG("mod ammo count2: %i", newEqData->loadedAmmoCount);
-		ExtraWeaponState* weaponState = ExtraWeaponState::Init(dataList, nullptr);
+		ExtraWeaponState* weaponState = ExtraWeaponState::Init(newList, nullptr);
 		if (weaponState)
-			weaponState->HandleEquipEvent(dataList, newEqData);
+			weaponState->HandleEquipEvent(newList, newEqData);
 		//if (modLoadedAmmoCount == 0 || (modLoadedAmmoCount == 2 && newAmmoType == ammoType)) //BCR!!
 		//	newEqData->loadedAmmoCount = loadedAmmoCount;
 		//else if (modLoadedAmmoCount == 1 || (modLoadedAmmoCount == 2 && newAmmoType != ammoType))
@@ -721,18 +799,52 @@ namespace MSF_Base
 		ModifyModDataFunctor modFunctor(mod, 0, bAttach, &ret);
 		modFunctor.shouldSplitStacks = shouldSplitStacks;
 		modFunctor.transferEquippedToSplitStack = transferEquippedToSplitStack;
-
+		PrintStackData((Actor*)owner, (TESObjectWEAP*)extraInstanceData->baseForm);
 		UInt32 unk = 0x00200000;
+		MSF_MainData::modSwitchManager.GetSetChangeAmmo((1 << (UInt8)transferEquippedToSplitStack) | (UInt16((MSF_MainData::MCMSettingFlags & MSF_MainData::bRandomizeLoadedAmmoOnSplitStack) / MSF_MainData::bRandomizeLoadedAmmoOnSplitStack) << 2));
 		AttachRemoveModStack(item, &IDfunctor, &modFunctor, 0, &unk);
+		MSF_MainData::modSwitchManager.GetSetChangeAmmo(0);
 
-		extraInstanceData = DYNAMIC_CAST(dataList->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
+		if (shouldSplitStacks)
+		{
+			if (isEquipped)
+			{
+				stack = item->stack;
+				if (!transferEquippedToSplitStack && item->stack->next)
+				{
+					volatile short* equipFlagPtr = (volatile short*)&item->stack->flags;
+					InterlockedExchange16(equipFlagPtr, 0);
+					void* next1 = InterlockedExchangePointer((void* volatile*)&stack->next, item->stack);
+					void* next0 = InterlockedExchangePointer((void* volatile*)&item->stack->next, next1);
+					void* start = InterlockedExchangePointer((void* volatile*)&item->stack, next0);
+				}
+			}
+			else
+			{
+				stackID++;
+				UInt32 currID = 0;
+				for (BGSInventoryItem::Stack* newStack = item->stack; stack; stack->next)
+				{
+					if (stackID == currID)
+					{
+						stack = newStack;
+						break;
+					}
+					currID++;
+				}
+			}
+		}
+
+		ExtraDataList* newList = stack->extraData;
+		extraInstanceData = DYNAMIC_CAST(newList->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
 		if (!extraInstanceData || !extraInstanceData->baseForm || !extraInstanceData->instanceData)
 			return false;
 
 		TESObjectWEAP* baseWeap = DYNAMIC_CAST(extraInstanceData->baseForm, TESForm, TESObjectWEAP);
 		if (baseWeap)
 		{
-			BSExtraData* newExtraMods = dataList->GetByType(kExtraData_ObjectInstance);
+			PrintStackData((Actor*)owner, (TESObjectWEAP*)extraInstanceData->baseForm);
+			BSExtraData* newExtraMods = newList->GetByType(kExtraData_ObjectInstance);
 			BGSObjectInstanceExtra* newModList = DYNAMIC_CAST(newExtraMods, BSExtraData, BGSObjectInstanceExtra);
 			std::vector<BGSMod::Attachment::Mod*> invalidMods;
 			MSF_Base::GetInvalidMods(&invalidMods, newModList, baseWeap, mod);
@@ -743,23 +855,31 @@ namespace MSF_Base
 				unk = 0x00200000;
 				bool success = false;
 				ModifyModDataFunctor modifyModFunctor(invalidMod, 0, false, &success);
+				modifyModFunctor.shouldSplitStacks = false;
 				//MSF_MainData::modSwitchManager.SetIgnoreDeleteExtraData(true);
 				AttachRemoveModStack(item, &CheckStackIDFunctor(Utilities::GetStackID(item, stack)), &modifyModFunctor, 0, &unk);
 			}
 			std::vector<std::pair<BGSMod::Attachment::Mod*, bool>> stateModsToModify;
-			ExtraWeaponState::HandleModChangeEvent(dataList, &stateModsToModify, ExtraWeaponState::kEventTypeModdedSwitch);
+			ExtraWeaponState::HandleModChangeEvent(newList, &stateModsToModify, ExtraWeaponState::kEventTypeModdedSwitch, dataList);
+			PrintStackData((Actor*)owner, (TESObjectWEAP*)extraInstanceData->baseForm);
 			for (auto nextPair : stateModsToModify)
 			{
 				unk = 0x00200000;
 				bool success = false;
 				ModifyModDataFunctor modifyModFunctor(nextPair.first, 0, nextPair.second, &success);
+				modifyModFunctor.shouldSplitStacks = false;
 				//MSF_MainData::modSwitchManager.SetIgnoreDeleteExtraData(true);
 				AttachRemoveModStack(item, &CheckStackIDFunctor(Utilities::GetStackID(item, stack)), &modifyModFunctor, 0, &unk);
 			}
 		}
-
+		PrintStackData((Actor*)owner, (TESObjectWEAP*)extraInstanceData->baseForm);
 		if (isEquipped && ownerActor)
 		{
+			if (!transferEquippedToSplitStack)
+			{
+				extraInstanceData = DYNAMIC_CAST(dataList->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
+				newList = dataList;
+			}
 			BGSObjectInstance idStruct;
 			idStruct.object = extraInstanceData->baseForm;
 			idStruct.instanceData = extraInstanceData->instanceData;
@@ -769,17 +889,19 @@ namespace MSF_Base
 			{
 				MSF_MainData::modSwitchManager.SetModChangeEvent(true);
 				MSF_MainData::modSwitchManager.SetIgnoreAnimGraph(true);
+				MSF_MainData::modSwitchManager.SetDontPutYourGunIn(true);
 				EquipItemInternal(g_ActorEquipManager, ownerActor, idStruct, 0, 1, nullptr, 0, 0, 0, 1, 0);
+				MSF_MainData::modSwitchManager.SetDontPutYourGunIn(false);
 
 				if (updateAnimGraph)
 					UpdateAnimGraph(ownerActor, false);
-
+				PrintStackData((Actor*)owner, (TESObjectWEAP*)extraInstanceData->baseForm);
 				PatchActorValues(ownerActor, (TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
 
 				EquipWeaponData* newEqData = (EquipWeaponData*)ownerActor->middleProcess->unk08->equipData[0].equippedData;
-				ExtraWeaponState* weaponState = ExtraWeaponState::Init(dataList, nullptr);
+				ExtraWeaponState* weaponState = ExtraWeaponState::Init(newList, nullptr);
 				if (weaponState)
-					weaponState->HandleEquipEvent(dataList, newEqData);
+					weaponState->HandleEquipEvent(newList, newEqData);
 			}
 			else
 			{
@@ -788,7 +910,7 @@ namespace MSF_Base
 				PatchActorValues(ownerActor, (TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
 			}
 
-			//?
+			/*
 			for (UInt32 i = 0; i < ownerActor->inventoryList->items.count; i++)
 			{
 				BGSInventoryItem inventoryItem;
@@ -809,6 +931,8 @@ namespace MSF_Base
 					}
 				}
 			}
+			PrintStackData((Actor*)owner, (TESObjectWEAP*)extraInstanceData->baseForm);
+			*/
 		}
 
 		return true;

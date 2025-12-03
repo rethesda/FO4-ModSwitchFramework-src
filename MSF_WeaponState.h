@@ -22,6 +22,9 @@ public:
 	~ExtraWeaponState();
 	ExtraWeaponState(ExtraRank* holder);
 	static ExtraWeaponState* Init(ExtraDataList* extraDataList, EquipWeaponData* equipData);
+	ExtraWeaponState* Clone(ExtraRank* extraHolder, UInt8 changeAmmo = 0);
+	ExtraRank* GetHolder() { return holder; };
+	void SetHolder(ExtraRank* extraRank) { holder = extraRank; };
 	static bool HandleWeaponStateEvents(UInt8 eventType, Actor* actor = nullptr, UInt8 eventSubtype = 0, UInt32 oldLoadedAmmoCount = 0);
 	static TESAmmo* GetAmmoForWorkbenchUI(ExtraDataList* extraList);
 	//static auto GetCurrentUniqueState(BGSObjectInstanceExtra* attachedMods);
@@ -35,7 +38,7 @@ public:
 	bool HandleFireEvent(ExtraDataList* extraDataList, EquipWeaponData* equipData);
 	bool HandleAmmoChangeEvent(ExtraDataList* extraDataList, EquipWeaponData* equipData);
 	bool HandleReloadEvent(ExtraDataList* extraDataList, EquipWeaponData* equipData, UInt8 eventType, UInt32 oldLoadedAmmoCount);
-	static bool HandleModChangeEvent(ExtraDataList* extraDataList, std::vector<std::pair<BGSMod::Attachment::Mod*, bool>>* modsToModify, UInt8 eventType); //update burst manager
+	static bool HandleModChangeEvent(ExtraDataList* extraDataList, std::vector<std::pair<BGSMod::Attachment::Mod*, bool>>* modsToModify, UInt8 eventType, ExtraDataList* oldExtraDataList = nullptr, UInt8 changeAmmo = 0); //update burst manager
 	bool UpdateWeaponStates(ExtraDataList* extraDataList, EquipWeaponData* equipData, UInt8 eventType, std::vector<std::pair<BGSMod::Attachment::Mod*, bool>>* modsToModify = nullptr);
 	TESAmmo* GetCurrentAmmo();
 	bool SetCurrentAmmo(TESAmmo* ammo);
@@ -47,6 +50,7 @@ public:
 	enum
 	{
 		kEventTypeUndefined,
+		kEventTypeCreate,
 		kEventTypeEquip,
 		kEventTypeAmmoCount,
 		kEventTypeFireWeapon,
@@ -80,8 +84,9 @@ public:
 	class WeaponState
 	{
 	public:
-		WeaponState(ExtraDataList* extraDataList, EquipWeaponData* equipData, ModData::Mod* currUniqueStateMod);
-		WeaponState(UInt16 newflags, UInt16 newammoCapacity, UInt16 newchamberSize, UInt32 newchamberedCount, UInt16 newshotCount, UInt64 newloadedAmmo, TESAmmo* newchamberedAmmo, TESAmmo* newequippedAmmo, std::vector<TESAmmo*>* newBCRammo, std::vector<BGSMod::Attachment::Mod*>* newStateMods);		bool FillData(ExtraDataList* extraDataList, EquipWeaponData* equipData, ModData::Mod* currUniqueStateMod);
+		WeaponState(ExtraDataList* extraDataList, EquipWeaponData* equipData, ModData::Mod* currUniqueStateMod, UInt8 eventType);
+		WeaponState(UInt16 newflags, UInt16 newammoCapacity, UInt16 newchamberSize, UInt32 newchamberedCount, UInt16 newshotCount, UInt64 newloadedAmmo, TESAmmo* newchamberedAmmo, TESAmmo* newequippedAmmo, std::vector<TESAmmo*>* newBCRammo, std::vector<BGSMod::Attachment::Mod*>* newStateMods);		
+		bool FillData(ExtraDataList* extraDataList, EquipWeaponData* equipData, ModData::Mod* currUniqueStateMod, UInt8 eventType);
 		bool UpdateAmmoState(ExtraDataList* extraDataList, BGSObjectInstanceExtra* attachedMods, UInt8 eventType, bool stateChange, std::vector<std::pair<BGSMod::Attachment::Mod*, bool>>* modsToModify);
 		WeaponState* Clone();
 		enum
@@ -158,9 +163,32 @@ public:
 		ExtraWeaponState* state = nullptr;
 		if (id && id <= vectorstorage.size())
 			state = vectorstorage[id - 1];
-		if (state)// && state->ValidateParent())
+		if (state && state->GetHolder())
 			return state;
 		return nullptr;
+	};
+	bool Destruct(WeaponStateID id)
+	{
+		ExtraWeaponState* state = nullptr;
+		if (id && id <= vectorstorage.size())
+			state = vectorstorage[id - 1];
+		if (state)// && state->ValidateParent())
+		{
+			delete state;
+			vectorstorage[id - 1] = nullptr;
+			return true;
+		}
+		return false;
+	};
+	bool InvalidateExtraWeaponState(WeaponStateID id)
+	{
+		ExtraWeaponState* state = nullptr;
+		if (id && id <= vectorstorage.size())
+			state = vectorstorage[id - 1];
+		if (!state)
+			return false;
+		state->SetHolder(nullptr);
+		return true;
 	};
 	bool StoreForLoad(WeaponStateID id, ExtraRank* holder)
 	{
@@ -218,11 +246,11 @@ public:
 	{
 		return vectorstorage.size();
 	};
-	void SaveWeaponStates(std::function<bool(const F4SESerializationInterface*, UInt32, ExtraWeaponState*)> f_callback, const F4SESerializationInterface* intfc, UInt32 version)
+	void SaveWeaponStates(std::function<bool(const F4SESerializationInterface*, UInt32, ExtraWeaponState*)> f_callback, const F4SESerializationInterface* intfc, UInt32 version, bool onlyValid = true)
 	{
 		for (const auto& state : vectorstorage)
 		{
-			if (state)
+			if (state && (!onlyValid || state->GetHolder()))
 				f_callback(intfc, version, state);
 		}
 	};

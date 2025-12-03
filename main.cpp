@@ -32,6 +32,65 @@ F4SEScaleformInterface*		g_scaleform		=	NULL;
 F4SESerializationInterface* g_serialization =	NULL;
 F4SETaskInterface*			g_threading		=	NULL;
 
+void WritePutYourGunInCompatibility()
+{
+#ifndef NEXTGEN
+	if (MSF_MainData::PutYourGunInCompatibility)
+	{
+		SInt32 displ = 0;
+		uintptr_t fn = 0;
+
+		HookUtil::SafeReadBuf(MainEquipHandler.GetUIntPtr()+0x1, &displ, sizeof(displ));
+
+		if (displ != 0x0 && displ != 0x20244C89)
+		{
+			uintptr_t nextInstr = MainEquipHandler.GetUIntPtr() + 0x5;
+			fn = static_cast<ptrdiff_t>(displ) + nextInstr;
+		}
+		if (fn != 0 && fn != PutYourGunInBranchCode)
+		{
+			struct PutYourGunIn_BranchCode : Xbyak::CodeGenerator {
+				PutYourGunIn_BranchCode(void* buf) : Xbyak::CodeGenerator(4096, buf)
+				{
+					Xbyak::Label retn, retnAddr, pygiCode, doAddr, cmpAddr;
+
+					mov(rax, ptr[rip + cmpAddr]);
+					cmp(byte[rax], 0);
+					je(retn);
+					mov(rax, ptr[rip + doAddr]);
+					movzx(eax, word[rax]);
+					test(ax, ax);
+					jnz(retn);
+					jmp(ptr[rip + pygiCode]);
+					L(retn);
+					//mov(eax, 0);
+					//xchg(word[rip + doAddr], ax);
+					mov(ptr[rsp + 0x20], r9);
+					jmp(ptr[rip + retnAddr]);
+
+					L(retnAddr);
+					dq(MainEquipHandler.GetUIntPtr() + 0x5);
+					L(pygiCode);
+					dq((uintptr_t)MainEquipHandler_Copied);
+					L(doAddr);
+					dq((uintptr_t)&MSF_MainData::modSwitchManager.dontPutYourGunIn);
+					L(cmpAddr);
+					dq((uintptr_t)&MSF_MainData::PutYourGunInCompatibility);
+
+				}
+			};
+
+			MainEquipHandler_Copied = (_MainEquipHandler)fn;
+			void* PutYourGunInBranch_codeBuf = g_localTrampoline.StartAlloc();
+			PutYourGunIn_BranchCode PutYourGunInBranch_code(PutYourGunInBranch_codeBuf);
+			g_localTrampoline.EndAlloc(PutYourGunInBranch_code.getCurr());
+			PutYourGunInBranchCode = (uintptr_t)PutYourGunInBranch_codeBuf;
+			g_branchTrampoline.Write5Branch(MainEquipHandler.GetUIntPtr(), PutYourGunInBranchCode);
+		}
+	}
+#endif
+}
+
 bool RegisterAfterLoadEvents()
 {
 	auto eventDispatcher1 = GET_EVENT_DISPATCHER(PlayerAmmoCountEvent);
@@ -143,6 +202,8 @@ void F4SEMessageHandler(F4SEMessagingInterface::Message* msg)
 				_FATALERROR("Fatal Error - MSF was unable to initialize MCM settings");
 			else
 			{
+				WritePutYourGunInCompatibility();
+
 				static auto pLoadGameHandler = new TESLoadGameHandler();
 				GetEventDispatcher<TESLoadGameEvent>()->AddEventSink(pLoadGameHandler);
 				MSF_Scaleform::ReceiveKeyEvents();
@@ -189,6 +250,7 @@ bool WriteHooks()
 	ActorEquipManagerPre_Copied = HookUtil::GetFnPtrFromCall6(ActorEquipManagerPre_JumpHookTarget.GetUIntPtr());
 	AttachRemoveModInternal_Copied = HookUtil::GetFnPtrFromCall5(AModToInvItem_Attach_AV_HookTarget.GetUIntPtr(), &AttachRemoveModInternal_Hook);
 	EquipItemPapyrus_Copied = HookUtil::GetFnPtrFromCall5(AModToInvItem_Equip_AV_HookTarget.GetUIntPtr(), &EquipItemPapyrus_Hook);
+	ExtraRankConstructor_Copied = HookUtil::GetFnPtrFromCall5(ExtraRankConstructor_HookTarget.GetUIntPtr(), &ExtraRankConstructor_Hook);
 
 	uint32_t res = CheckHookCopies();
 	if (res)
@@ -375,6 +437,7 @@ bool WriteHooks()
 
 	PlayerAnimationEvent_Original = HookUtil::SafeWrite64(PlayerAnimationEvent_HookTarget.GetUIntPtr(), &PlayerAnimationEvent_Hook);
 	ExtraRankCompare_Copied = (uintptr_t)HookUtil::SafeWrite64(s_ExtraRankVtbl.GetUIntPtr()+8, &ExtraRankCompare_Hook);
+	ExtraRankDestructor_Copied = HookUtil::SafeWrite64(s_ExtraRankVtbl.GetUIntPtr(), &ExtraRankDestructor_Hook);
 	PipboyMenuInvoke_Copied = HookUtil::SafeWrite64(PipboyMenuInvoke_HookAddress.GetUIntPtr(), &PipboyMenuInvoke_Hook);
 	if (!PlayerAnimationEvent_Original || !ExtraRankCompare_Copied || !PipboyMenuInvoke_Copied)
 	{
@@ -393,10 +456,15 @@ bool WriteHooks()
 	g_branchTrampoline.Write5Call(ObjectInstanceCtor_HookTarget.GetUIntPtr(), (uintptr_t)ObjectInstanceCtor_Hook);
 	g_branchTrampoline.Write5Call(AModToInvItem_Attach_AV_HookTarget.GetUIntPtr(), (uintptr_t)AttachRemoveModInternal_Hook);
 	g_branchTrampoline.Write5Call(AModToInvItem_Equip_AV_HookTarget.GetUIntPtr(), (uintptr_t)EquipItemPapyrus_Hook);
+	g_branchTrampoline.Write5Call(ExtraRankConstructor_HookTarget.GetUIntPtr(), (uintptr_t)ExtraRankConstructor_Hook);
+
+
 
 	res = CheckHookTargets();
 	if (res)
+	{
 		_MESSAGE("Hook target mismatch found during initialization. This message may be ignored. Error code: 0x%08X", res);
+	}
 
 	return true;
 }
@@ -439,7 +507,7 @@ bool InitPlugin(const F4SEInterface* f4se)
 {
 	gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Fallout4\\F4SE\\ModSwitchFramework.log");
 	_MESSAGE("%s v%s dll loaded...\n", PLUGIN_NAME_SHORT, MSF_VERSION_STRING);
-#if CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 11, 137) 
+#if CURRENT_RELEASE_RUNTIME >= MAKE_EXE_VERSION(1, 11, 137) 
 	_MESSAGE("Anniversary Edition (NextGen) version\n");
 #elif defined(NEXTGEN)
 	_MESSAGE("NextGen version\n");
@@ -563,6 +631,12 @@ bool InitPlugin(const F4SEInterface* f4se)
 	{
 		_FATALERROR("Fatal Error - MSF was unable to write hooks");
 		return false;
+	}
+
+	if (GetFileAttributes("Data\\F4SE\\Plugins\\PutUrGunIn.dll") != INVALID_FILE_ATTRIBUTES)
+	{
+		MSF_MainData::PutYourGunInCompatibility = true;
+		_MESSAGE("PutUrGunIn.dll detected - Compatibility patch enabled");
 	}
 
 	srand(time(NULL));

@@ -421,7 +421,9 @@ void AttachRemoveModInternal_Hook(Actor* actor, TESBoundObject* baseItem, CheckS
 			MSF_Base::GetActorValues((TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
 	}
 	AttachRemoveModInternal_Copied(actor, baseItem, CheckStackIDFunctor, ModifyModDataFunctor, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7);
+	MSF_MainData::modSwitchManager.SetDontPutYourGunIn(true);
 	EquipItemPapyrus_Copied(actor, baseItem, 0);
+	MSF_MainData::modSwitchManager.SetDontPutYourGunIn(false);
 	if (list)
 	{
 		ExtraInstanceData* extraInstanceData = DYNAMIC_CAST(list->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
@@ -447,12 +449,53 @@ bool AttachModToStack_CallFromGameplay_Hook(BGSInventoryItem* invItem, CheckStac
 	UInt8 slotIndex = modWriteFunctor->slotIndex;
 	_DEBUG("unk: %08X, slot index: %02X", unk, slotIndex);
 
-	bool result = AttachModToStack_CallFromGameplay_Copied(invItem, IDfunctor, modFunctor, unk_r9d, unk_rsp20);
+	bool isEquipped = false;
+	bool shouldSplitStacks = modFunctor->shouldSplitStacks;
+	bool transferEquippedToSplitStack = modFunctor->transferEquippedToSplitStack;
 	BGSInventoryItem::Stack* stack = Utilities::GetStack(invItem, stackID);
+	ExtraDataList* dataList = nullptr;
+	if (stack)
+	{
+		isEquipped = stack->flags & BGSInventoryItem::Stack::kFlagEquipped;
+		dataList = stack->extraData;
+	}
+
+	MSF_MainData::modSwitchManager.GetSetChangeAmmo((1 << (UInt8)transferEquippedToSplitStack) | (UInt16((MSF_MainData::MCMSettingFlags & MSF_MainData::bRandomizeLoadedAmmoOnSplitStack) / MSF_MainData::bRandomizeLoadedAmmoOnSplitStack) << 2));
+	bool result = AttachModToStack_CallFromGameplay_Copied(invItem, IDfunctor, modFunctor, unk_r9d, unk_rsp20);
+	MSF_MainData::modSwitchManager.GetSetChangeAmmo(0);
+
+	if (modFunctor && shouldSplitStacks)
+	{
+		if (isEquipped)
+		{
+			stack = invItem->stack;
+			if (!transferEquippedToSplitStack && invItem->stack->next)
+			{
+				volatile short* equipFlagPtr = (volatile short*)&invItem->stack->flags;
+				InterlockedExchange16(equipFlagPtr, 0);
+			//	void* next1 = InterlockedExchangePointer((void* volatile*)&stack->next, invItem->stack);
+			//	void* next0 = InterlockedExchangePointer((void* volatile*)&invItem->stack->next, next1);
+			//	void* start = InterlockedExchangePointer((void* volatile*)&invItem->stack, next0);
+			}
+		}
+		else
+		{
+			stackID++;
+			UInt32 currID = 0;
+			for (BGSInventoryItem::Stack* newStack = invItem->stack; stack; stack->next)
+			{
+				if (stackID == currID)
+				{
+					stack = newStack;
+					break;
+				}
+				currID++;
+			}
+		}
+	}
+
 	if (!stack)
 		return result;
-	if (stack->flags & BGSInventoryItem::Stack::kFlagEquipped)
-		MSF_MainData::modSwitchManager.SetModChangeEvent(true);
 	_DEBUG("stackOK");
 
 	if (modWriteFunctor && modWriteFunctor->mod)
@@ -466,11 +509,13 @@ bool AttachModToStack_CallFromGameplay_Hook(BGSInventoryItem* invItem, CheckStac
 		//if (attachedMod->targetType != BGSMod::Attachment::Mod::kTargetType_Weapon)
 		//	return result;
 		_DEBUG("typeOK %p", attachedMod);
-		ExtraDataList* extraList = stack->extraData;
-		if (!extraList)
+		ExtraDataList* newList = stack->extraData;
+		if (!transferEquippedToSplitStack)
+			newList = dataList;
+		if (!newList)
 			return result;
 		_DEBUG("extraOK");
-		BGSObjectInstanceExtra* moddata = DYNAMIC_CAST(extraList->GetByType(ExtraDataType::kExtraData_ObjectInstance), BSExtraData, BGSObjectInstanceExtra);
+		BGSObjectInstanceExtra* moddata = DYNAMIC_CAST(newList->GetByType(ExtraDataType::kExtraData_ObjectInstance), BSExtraData, BGSObjectInstanceExtra);
 		if (!moddata)
 			return result;
 		_DEBUG("dataOK");
@@ -484,6 +529,7 @@ bool AttachModToStack_CallFromGameplay_Hook(BGSInventoryItem* invItem, CheckStac
 			UInt32 newunk = unk;
 			bool success = false;
 			ModifyModDataFunctor modifyModFunctor = ModifyModDataFunctor(invalidMod, slotIndex, false, &success);
+			modifyModFunctor.shouldSplitStacks = false;
 			AttachModToStack_CallFromGameplay_Copied(invItem, &CheckStackIDFunctor(stackID), &modifyModFunctor, unk_r9d, &newunk);
 		}
 
@@ -518,16 +564,19 @@ bool AttachModToStack_CallFromGameplay_Hook(BGSInventoryItem* invItem, CheckStac
 		//}
 
 		std::vector<std::pair<BGSMod::Attachment::Mod*, bool>> stateModsToModify;
-		ExtraWeaponState::HandleModChangeEvent(extraList, &stateModsToModify, ExtraWeaponState::kEventTypeModdedGameplay);
+		ExtraWeaponState::HandleModChangeEvent(newList, &stateModsToModify, ExtraWeaponState::kEventTypeModdedGameplay, dataList);
 		for (auto nextPair : stateModsToModify)
 		{
 			_DEBUG("target state/ammomod GP: %08X, rem: %02X", nextPair.first->formID, nextPair.second);
 			UInt32 newunk = unk;
 			bool success = false;
 			ModifyModDataFunctor modifyModFunctor = ModifyModDataFunctor(nextPair.first, slotIndex, nextPair.second, &success);
+			modifyModFunctor.shouldSplitStacks = false;
 			MSF_MainData::modSwitchManager.SetIgnoreDeleteExtraData(true);
 			AttachModToStack_CallFromGameplay_Copied(invItem, &CheckStackIDFunctor(stackID), &modifyModFunctor, unk_r9d, &newunk);
 		}
+		if (stack->flags & BGSInventoryItem::Stack::kFlagEquipped)
+			MSF_MainData::modSwitchManager.SetModChangeEvent(true);
 
 		//BGSMod::Attachment::Mod* invalidAmmoMod = MSF_Base::GetAmmoModIfInvalid(moddata, weapon); 
 		//if (invalidAmmoMod)
@@ -643,7 +692,27 @@ ExtraRank* LoadBuffer_ExtraDataList_ExtraRank_Hook(ExtraRank* newExtraRank, UInt
 	return newExtraRank;
 }
 
-bool ExtraRankCompare_Hook(ExtraRank* extra1, ExtraRank* extra2) //ctor: B8670 v. A9F60 v. 9DC03
+void ExtraRankConstructor_Hook(ExtraDataList* parentList, UInt32 rank)
+{
+	ExtraRankConstructor_Copied(parentList, rank);
+	if (!MSF_MainData::GameIsLoading && !(*g_ui)->IsMenuOpen("LoadingMenu"))
+	{
+		UInt8 changeAmmo = MSF_MainData::modSwitchManager.GetSetChangeAmmo(0);
+		ExtraRank* holder = (ExtraRank*)parentList->GetByType(kExtraData_Rank);
+		ExtraWeaponState* oldWeaponState = MSF_MainData::weaponStateStore.Get(rank);
+		if (holder && oldWeaponState)
+			ExtraWeaponState* weaponState = oldWeaponState->Clone(holder, changeAmmo);
+	}
+}
+
+ExtraRank* ExtraRankDestructor_Hook(ExtraRank* extra, bool cast)
+{
+	if (!MSF_MainData::GameIsLoading && !(*g_ui)->IsMenuOpen("LoadingMenu"))
+		MSF_MainData::weaponStateStore.Destruct(extra->rank); //invalidate
+	return ExtraRankDestructor_Copied(extra, cast);
+}
+
+bool ExtraRankCompare_Hook(ExtraRank* extra1, ExtraRank* extra2) 
 {
 	//_DEBUG("COMPARE");
 	if (!extra1 || !extra2)

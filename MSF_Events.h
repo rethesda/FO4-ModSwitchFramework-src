@@ -97,6 +97,8 @@ DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x004DCB30); //diff: D0 //2201
 DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x004DCB60);
 #elif CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 11, 137) 
 DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x0052DB80);
+#elif CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 11, 159) 
+DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x0052DCC0);
 #endif
 
 //CombatEvent
@@ -319,6 +321,15 @@ extern RelocAddr <uintptr_t> AModToInvItem_Equip_AV_HookTarget;
 extern _AttachRemoveModInternal AttachRemoveModInternal_Copied;
 extern _EquipItemPapyrus EquipItemPapyrus_Copied;
 
+extern RelocAddr <uintptr_t> ExtraRankConstructor_HookTarget;
+extern RelocAddr <_ExtraRankCtor> ExtraRankConstructor_Original;
+extern RelocAddr <_ExtraRankDtor> ExtraRankDestructor_Original;
+extern _ExtraRankCtor ExtraRankConstructor_Copied;
+extern _ExtraRankDtor ExtraRankDestructor_Copied;
+
+extern _MainEquipHandler MainEquipHandler_Copied;
+extern uintptr_t PutYourGunInBranchCode;
+
 struct ReloadJumpReplace {
 	uint8_t original[2] = { 0x0F, 0x84 };
 	uint8_t replacement[2] = { 0x90, 0xE9 };
@@ -474,6 +485,8 @@ void UpdateEquipData_Hook(BipedAnim* equipData, BGSObjectInstance instance, UInt
 void UpdateEquippedWeaponData_Hook(EquippedWeaponData* data);
 BGSObjectInstanceExtra* ObjectInstanceCtor_Hook(BGSObjectInstanceExtra* allocatedHeap, BGSMod::Template::Item* templateItem, TESBoundObject* parentForm, void* instanceFilter);
 ExtraRank* LoadBuffer_ExtraDataList_ExtraRank_Hook(ExtraRank* newExtraRank, UInt32 rank, ExtraDataList* futureParentList, BGSInventoryItem::Stack* futureParentStack);
+void ExtraRankConstructor_Hook(ExtraDataList* parentList, UInt32 rank);
+ExtraRank* ExtraRankDestructor_Hook(ExtraRank* extra, bool cast);
 bool ExtraRankCompare_Hook(ExtraRank* extra1, ExtraRank* extra2);
 bool CheckAmmoCountForReload_Hook(Actor* target, UInt32 loadedAmmo, UInt32 ammoCap, UInt32 ammoReserve);
 const char* CannotEquipItem_Hook(TESObjectREFR* target, TESForm* item, UInt32 unequip, UInt32 type);
