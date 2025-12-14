@@ -131,7 +131,7 @@ public:
 	WeaponStateStore()
 	{
 		mapstorage.reserve(100);
-		vectorstorage.reserve(100);
+		vectorstorage.reserve(10000);
 		ranksToClear.reserve(100);
 	};
 	void Free()

@@ -99,10 +99,7 @@ ExtraWeaponState* ExtraWeaponState::Init(ExtraDataList* extraDataList, EquipWeap
 ExtraWeaponState* ExtraWeaponState::Clone(ExtraRank* extraHolder, UInt8 changeAmmo)
 {
 	ExtraWeaponState* newExtraState = new ExtraWeaponState(extraHolder);
-	newExtraState->ID = MSF_MainData::weaponStateStore.Add(newExtraState);
-	extraHolder->rank = newExtraState->ID;
-	newExtraState->holder = extraHolder;
-	newExtraState->defaultStatePlaceholder = this->defaultStatePlaceholder;
+
 	for (auto itState : this->weaponStates)
 	{
 		WeaponState* newState = itState.second->Clone();
