@@ -34,7 +34,7 @@ EventResult	BGSOnPlayerModArmorWeaponEventSink::ReceiveEvent(BGSOnPlayerModArmor
 EventResult	TESCellFullyLoadedEventSink::ReceiveEvent(TESCellFullyLoadedEvent * evn, void * dispatcher)
 {
 	MSF_Base::SpawnRandomMods(evn->cell);
-	//_DEBUG("Cell evn");
+	_DEBUG("Cell evn");
 	return kEvent_Continue;
 }
 

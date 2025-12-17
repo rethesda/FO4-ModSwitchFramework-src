@@ -1601,6 +1601,14 @@ namespace MSF_Data
 									MSF_MainData::projectileManager.AddModData(mod, data, flags & 1);
 									_DEBUG("added");
 								}
+								else
+								{
+									str = cont["value"].asString();
+									if (data.op >= BGSMod::Container::Data::kOpFlag_Set_Form && data.op != BGSMod::Container::Data::kOpFlag_Set_Enum)
+										_MESSAGE("Value error in %s 'projectileMod->BGSModContainerData->value': %s could not be cast as the specified Form", fileName.c_str(), str);
+									else
+										_MESSAGE("Value error in %s 'projectileMod->BGSModContainerData->value': %s is out of range of the specified target variable", fileName.c_str(), str);
+								}
 							}
 						}
 					}

@@ -1,6 +1,7 @@
 #include "MSF_Shared.h"
 #include "MSF_Data.h"
 #include "MSF_Base.h"
+#include "MSF_Addresses.h"
 #include "f4se\GameThreads.h"
 
 //Anim Event
@@ -89,17 +90,7 @@ public:
 };
 extern TESCellFullyLoadedEventSink cellFullyLoadedEventSink;
 
-#if CURRENT_RELEASE_RUNTIME == RUNTIME_VERSION_1_10_163
-DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x00442050); //diff: A0 
-#elif CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 10, 980) 
-DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x004DCB30); //diff: D0 //2201825
-#elif CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 10, 984) 
-DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x004DCB60);
-#elif CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 11, 137) 
-DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x0052DB80);
-#elif CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 11, 159) 
-DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, 0x0052DCC0);
-#endif
+DECLARE_EVENT_DISPATCHER(TESCellFullyLoadedEvent, ID(1175067, 2201825).offset());
 
 //CombatEvent
 class CombatEvnHandler : public BSTEventSink<TESCombatEvent>

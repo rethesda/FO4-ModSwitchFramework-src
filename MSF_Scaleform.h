@@ -10,6 +10,9 @@
 #include "MSF_Shared.h"
 #include "MSF_Data.h"
 #include "MSF_Base.h"
+#include "MSF_Addresses.h"
+
+class ItemMenuDataManager;
 
 namespace MSF_Scaleform
 {
@@ -63,26 +66,25 @@ extern _PipboyMenuInvoke PipboyMenuInvoke_Copied;
 void PipboyMenuInvoke_Hook(PipboyMenu* menu, PipboyMenu::ScaleformArgs* args);
 
 
+typedef TESForm*(*_GetSelectedForm)(ItemMenuDataManager* mgr, UInt32& handleID);
+extern RelocAddr <_GetSelectedForm> GetSelectedForm_Original;
+typedef BGSInventoryItem* (*_GetSelectedItem)(ItemMenuDataManager* mgr, UInt32& handleID);
+extern RelocAddr <_GetSelectedItem> GetSelectedItem_Original;
+
 class ItemMenuDataManager
 {
 public:
-#ifndef NEXTGEN
-	DEFINE_MEMBER_FN_1(GetSelectedForm, TESForm*, 0x1A3740, UInt32& handleID);
-	DEFINE_MEMBER_FN_1(GetSelectedItem, BGSInventoryItem*, 0x1A3650, UInt32& handleID);
-	
-#elif CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 11, 137) 
-	DEFINE_MEMBER_FN_1(GetSelectedForm, TESForm*, 0x344B40, UInt32& handleID);
-	DEFINE_MEMBER_FN_1(GetSelectedItem, BGSInventoryItem*, 0x344980, UInt32& handleID);
-#elif CURRENT_RELEASE_RUNTIME == MAKE_EXE_VERSION(1, 11, 159) 
-	DEFINE_MEMBER_FN_1(GetSelectedForm, TESForm*, 0x344C80, UInt32& handleID);
-	DEFINE_MEMBER_FN_1(GetSelectedItem, BGSInventoryItem*, 0x344AC0, UInt32& handleID);
-#else
-	//DEFINE_MEMBER_FN_1(GetSelectedForm, TESForm*, 0x2F36B0, UInt32& handleID); 2194011
-	//DEFINE_MEMBER_FN_1(GetSelectedItem, BGSInventoryItem*, 0x2F34F0, UInt32& handleID); 2194009
+	//DEFINE_MEMBER_FN_1(GetSelectedForm, TESForm*, ID(1453201, 2194011).offset(), UInt32& handleID);
+	//DEFINE_MEMBER_FN_1(GetSelectedItem, BGSInventoryItem*, ID(1200959, 2194009).offset(), UInt32& handleID);
 
-	DEFINE_MEMBER_FN_1(GetSelectedForm, TESForm*, 0x2F36E0, UInt32& handleID);
-	DEFINE_MEMBER_FN_1(GetSelectedItem, BGSInventoryItem*, 0x2F3520, UInt32& handleID);
-#endif
+	inline TESForm* GetSelectedForm(UInt32& handleID)
+	{
+		return GetSelectedForm_Original(this, handleID);
+	}
+	inline BGSInventoryItem* GetSelectedItem(UInt32& handleID)
+	{
+		return GetSelectedItem_Original(this, handleID);
+	}
 	//BGSInventoryItem
 };
 extern RelocPtr<ItemMenuDataManager*> g_itemMenuDataMgr;
