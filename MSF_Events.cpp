@@ -17,6 +17,7 @@ CombatEvnHandler combatEvnSink;
 PlayerAmmoCountEventSink playerAmmoCountEventSink;
 MenuOpenCloseSink menuOpenCloseSink;
 _PlayerAnimationEvent PlayerAnimationEvent_Original;
+PipboyLightEventSink pipboyLightEvent;
 
 EventResult	BGSOnPlayerUseWorkBenchEventSink::ReceiveEvent(BGSOnPlayerUseWorkBenchEvent* evn, void * dispatcher)
 {
@@ -35,6 +36,21 @@ EventResult	TESCellFullyLoadedEventSink::ReceiveEvent(TESCellFullyLoadedEvent * 
 {
 	MSF_Base::SpawnRandomMods(evn->cell);
 	_DEBUG("Cell evn");
+	return kEvent_Continue;
+}
+
+EventResult	PipboyLightEventSink::ReceiveEvent(PipboyLightEvent* evn, void* dispatcher)
+{
+	//_DEBUG("Light evn: %p, %p, %p, %p", evn->unk00, evn->unk08, evn->unk10, evn->unk18);
+	Actor* playerActor = *g_player;
+	bool isDown = (playerActor->actorState.flags & (ActorStateFlags0C::kWeaponState_Lowered1stP | ActorStateFlags0C::kWeaponState_Lowered3rdP));
+	if (isDown && evn->isOn1 && (MSF_MainData::MCMSettingFlags & MSF_MainData::bDontAutolowerWeaponWithFlashlightOn))
+		Utilities::PlayIdleAction(playerActor, MSF_MainData::ActionGunDown);
+	else if (!isDown && !evn->isOn1 && MSF_MainData::iAutolowerTimeMS)
+	{
+		LowerWeaponTask* lowerTask = new LowerWeaponTask();
+		MSF_MainData::modSwitchManager.lowerGunTimer.start(MSF_MainData::iAutolowerTimeMS, g_threading->AddTask, lowerTask);
+	}
 	return kEvent_Continue;
 }
 
@@ -747,6 +763,7 @@ UInt8 PlayerAnimationEvent_Hook(void* arg1, BSAnimationGraphEvent* arg2, void** 
 {
 	const char* name = arg2->eventName.c_str();
 	bool reload = false;
+	bool fire = false;
 	UInt8 didSwitch = 0;
 	UInt32 oldLoadedAmmoCount = 0;
 	if (!_strcmpi("reloadComplete", name))
@@ -868,6 +885,7 @@ UInt8 PlayerAnimationEvent_Hook(void* arg1, BSAnimationGraphEvent* arg2, void** 
 			LowerWeaponTask* lowerTask = new LowerWeaponTask();
 			MSF_MainData::modSwitchManager.lowerGunTimer.start(MSF_MainData::iAutolowerTimeMS, g_threading->AddTask, lowerTask);
 		}
+		fire = true;
 		//_DEBUG("Anim: fire");
 	}
 	else if (!_strcmpi("IdleStop", name))
@@ -931,7 +949,8 @@ UInt8 PlayerAnimationEvent_Hook(void* arg1, BSAnimationGraphEvent* arg2, void** 
 	{
 		//ExtraWeaponState::HandleWeaponStateEvents(ExtraWeaponState::kEventTypeEmptyMag);
 		EquipWeaponData* eqData = Utilities::GetEquippedWeaponData(*g_player);
-		eqData->loadedAmmoCount = 0;
+		if (eqData)
+			eqData->loadedAmmoCount = 0;
 	}
 	else if (!_strcmpi("switchMag", name))
 	{
@@ -1011,6 +1030,12 @@ UInt8 PlayerAnimationEvent_Hook(void* arg1, BSAnimationGraphEvent* arg2, void** 
 		}
 		_DEBUG("reloadCOMP2: %i", Utilities::GetEquippedWeaponData(*g_player)->loadedAmmoCount);
 		ExtraWeaponState::HandleWeaponStateEvents(ExtraWeaponState::kEventTypeReload, *g_player, didSwitch, oldLoadedAmmoCount); //BCR!!
+	}
+	else if (fire == true && (MSF_MainData::MCMSettingFlags & MSF_MainData::bSwitchToNewAmmoTypeWhenDepleted))
+	{
+		EquipWeaponData* eqData = Utilities::GetEquippedWeaponData(*g_player);
+		if (eqData && eqData->loadedAmmoCount == 0 && Utilities::GetInventoryItemCount((*g_player)->inventoryList, eqData->ammo) == 0)
+			MSF_Base::SwitchAmmoHotkey(KeybindData::bToggle, true, true);
 	}
 
 	return ret;

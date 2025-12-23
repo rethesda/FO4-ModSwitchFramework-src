@@ -111,6 +111,15 @@ bool RegisterAfterLoadEvents()
 		return false;
 	}
 
+	auto eventDispatcher3 = GET_EVENT_DISPATCHER(PipboyLightEvent);
+	if (eventDispatcher3)
+		eventDispatcher3->eventSinks.Push(&pipboyLightEvent);
+	else
+	{
+		_MESSAGE("MSF was unable to register for PipboyLightsEvent");
+		return false;
+	}
+
 	//REGISTER_EVENT(BGSOnPlayerModArmorWeaponEvent, modArmorWeaponEventSink);
 	//REGISTER_EVENT(BGSOnPlayerUseWorkBenchEvent, useWorkbenchEventSink);
 

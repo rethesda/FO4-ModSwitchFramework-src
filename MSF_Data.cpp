@@ -780,7 +780,7 @@ namespace MSF_Data
 			| MSF_MainData::bReplaceAmmoWithSpawned | MSF_MainData::bSpawnRandomMods | MSF_MainData::bInjectLeveledLists | MSF_MainData::bWidgetAlwaysVisible | MSF_MainData::bShowAmmoIcon | MSF_MainData::bShowMuzzleIcon | MSF_MainData::bShowAmmoName \
 			| MSF_MainData::bShowMuzzleName | MSF_MainData::bShowFiringMode | MSF_MainData::bShowScopeData | MSF_MainData::bShowUnavailableMods | MSF_MainData::bEnableMetadataSaving \
 			| MSF_MainData::bEnableExtraWeaponState | MSF_MainData::bEnableTacticalReloadChamber | MSF_MainData::bEnableTacticalReloadAnim | MSF_MainData::bEnableBCRSupport | MSF_MainData::bDisplayChamberedAmmoOnHUD | MSF_MainData::bDisplayMagInPipboy \
-			| MSF_MainData::bDisplayChamberInPipboy | MSF_MainData::bShowQuickkeySelection | MSF_MainData::bPatchVanillaAVcalculation);
+			| MSF_MainData::bDisplayChamberInPipboy | MSF_MainData::bShowQuickkeySelection | MSF_MainData::bPatchVanillaAVcalculation | MSF_MainData::bDontAutolowerWeaponWithFlashlightOn);
 
 		if (ReadUserSettings())
 			_MESSAGE("User settings loaded for MSF");
@@ -1228,7 +1228,13 @@ namespace MSF_Data
 			else if (settingName == "bRandomizeLoadedAmmoOnSplitStack")
 				flag = MSF_MainData::bRandomizeLoadedAmmoOnSplitStack;
 			else if (settingName == "bRandomizeLoadedAmmoOnNewWeapon")
-				flag = MSF_MainData::bRandomizeLoadedAmmoOnNewWeapon;
+				flag = MSF_MainData::bRandomizeLoadedAmmoOnNewWeapon; 
+			else if (settingName == "bDontAutolowerWeaponWithFlashlightOn")
+				flag = MSF_MainData::bDontAutolowerWeaponWithFlashlightOn; 
+			else if (settingName == "bSwitchToNewAmmoTypeWhenDepleted")
+				flag = MSF_MainData::bSwitchToNewAmmoTypeWhenDepleted; 
+			else if (settingName == "bStartDepletedSwitchFromBaseAmmo")
+				flag = MSF_MainData::bStartDepletedSwitchFromBaseAmmo;
 			else
 				return false;
 
@@ -2562,7 +2568,7 @@ namespace MSF_Data
 	}
 
 	//========================= Select Object Mod =======================
-	SwitchData* GetNextAmmoMod(bool isQuickkey)
+	SwitchData* GetNextAmmoMod(bool isQuickkey, bool requireAmmo)
 	{
 		BGSObjectInstanceExtra* moddata = Utilities::GetEquippedModData(*g_player, 41);
 		TESObjectWEAP* baseWeapon = Utilities::GetEquippedGun(*g_player);
@@ -2585,7 +2591,9 @@ namespace MSF_Data
 			}
 			UInt32 idx = -2;
 			UInt32 it = 1;
-			if (itMod != itAmmoData->ammoMods.end())
+			if (requireAmmo && (MSF_MainData::MCMSettingFlags & MSF_MainData::bStartDepletedSwitchFromBaseAmmo))
+				it = 0;
+			else if (itMod != itAmmoData->ammoMods.end())
 			{
 				itMod++;
 				if (itMod == itAmmoData->ammoMods.end())
@@ -2594,7 +2602,7 @@ namespace MSF_Data
 					it = std::distance(itAmmoData->ammoMods.begin(), itMod)+1;
 				itMod--;
 			}
-			if (MSF_MainData::MCMSettingFlags & MSF_MainData::bRequireAmmoToSwitch)
+			if ((MSF_MainData::MCMSettingFlags & MSF_MainData::bRequireAmmoToSwitch) || requireAmmo)
 			{
 				UInt32 itstat = it;
 				for (it; it < itstat + itAmmoData->ammoMods.size(); it++)

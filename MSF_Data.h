@@ -753,6 +753,9 @@ public:
 		bPatchVanillaAVcalculation = 0x10000000000,
 		bRandomizeLoadedAmmoOnSplitStack = 0x20000000000,
 		bRandomizeLoadedAmmoOnNewWeapon = 0x40000000000,
+		bDontAutolowerWeaponWithFlashlightOn = 0x80000000000,
+		bSwitchToNewAmmoTypeWhenDepleted = 0x100000000000,
+		bStartDepletedSwitchFromBaseAmmo = 0x200000000000,
 		mMakeExtraRankMask = bEnableExtraWeaponState //| bEnableTacticalReloadAll | bEnableTacticalReloadAnim | bEnableBCRSupport
 	};
 	static UInt64 MCMSettingFlags;
@@ -785,7 +788,7 @@ namespace MSF_Data
 	bool LoadPluginData();
 	bool ReadDataFromJSON(std::string fileName, std::string location);
 	void PrintStoredData();
-	SwitchData* GetNextAmmoMod(bool isQuickkey = false);
+	SwitchData* GetNextAmmoMod(bool isQuickkey = false, bool requireAmmo = false);
 	SwitchData* GetNthAmmoMod(UInt32 num);
 	SwitchData* GetModForAmmo(TESAmmo* targetAmmo);
 	bool GetNthMod(UInt32 num, BGSInventoryItem::Stack* eqStack, ModData* modData);

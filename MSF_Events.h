@@ -129,6 +129,20 @@ public:
 };
 extern MenuOpenCloseSink menuOpenCloseSink;
 
+struct PipboyLightEvent
+{
+	bool isOn1;
+	bool isOn2;
+};
+
+class PipboyLightEventSink : public BSTEventSink<PipboyLightEvent>
+{
+public:
+	virtual	EventResult	ReceiveEvent(PipboyLightEvent* evn, void* dispatcher) override;
+};
+extern PipboyLightEventSink pipboyLightEvent;
+//DECLARE_EVENT_DISPATCHER(PipboyLightEvent, ID(317686, ).offset()); //2FD7500
+
 typedef UInt8(*_PlayerAnimationEvent)(void * thissink, BSAnimationGraphEvent* evnstruct, void** dispatcher);
 extern RelocAddr <_PlayerAnimationEvent> PlayerAnimationEvent_HookTarget;
 extern _PlayerAnimationEvent PlayerAnimationEvent_Original;
@@ -425,13 +439,15 @@ public:
 	virtual void Run() final
 	{
 		_DEBUG("Lower Task");
-		Actor* playerActor = *g_player;
+		PlayerCharacter* playerActor = *g_player;
 		if (playerActor->IsInCombat() && !force)
 		{
 			LowerWeaponTask* lowerTask = new LowerWeaponTask();
 			MSF_MainData::modSwitchManager.lowerGunTimer.start(MSF_MainData::iAutolowerTimeMS, g_threading->AddTask, lowerTask);
 			return;
 		}
+		if ((MSF_MainData::MCMSettingFlags & MSF_MainData::bDontAutolowerWeaponWithFlashlightOn) && playerActor->unkB68[17] != 0)
+			return;
 		UInt32 weaponActivity = playerActor->actorState.flags & ActorStateFlags0C::mWeaponActivityMask;
 		//if (!(playerActor->actorState.flags & ActorStateFlags0C::kWeaponState_Drawn) || (playerActor->actorState.flags & (ActorStateFlags0C::kWeaponState_Draw | ActorStateFlags0C::kWeaponState_Sheathing | \
 		//	ActorStateFlags0C::kActorState_FurnitureState)) || (weaponActivity == ActorStateFlags0C::kWeaponState_Reloading || weaponActivity == ActorStateFlags0C::kWeaponState_Firing) || \

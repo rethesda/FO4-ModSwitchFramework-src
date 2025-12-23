@@ -60,7 +60,35 @@ namespace MSF_Base
 		}
 
 		_DEBUG("modOK");
+		return SwitchAmmoCommon(switchData);
+	}
 
+	//FROM HOTKEY (or fire anim):
+	bool SwitchAmmoHotkey(UInt8 key, bool ignoreAnim, bool requireAmmo)
+	{
+		Actor* playerActor = *g_player;
+		_DEBUG("queueCount: %i; state: %02X; unk08: %08X; flags: %08X", MSF_MainData::modSwitchManager.GetQueueCount(), MSF_MainData::modSwitchManager.GetState(), playerActor->actorState.unk08, playerActor->actorState.flags);
+
+		if (!ignoreAnim && (MSF_MainData::MCMSettingFlags & MSF_MainData::bReloadEnabled))// || (MSF_MainData::MCMSettingFlags & MSF_MainData::bDrawEnabled))
+		{
+			if (!MSF_Base::HandlePendingAnimations())
+				return false;
+		}
+		_DEBUG("animOK");
+
+		SwitchData* switchData = nullptr;
+		if (key & KeybindData::bToggle)
+			switchData = MSF_Data::GetNextAmmoMod(false, requireAmmo);
+		else
+			switchData = MSF_Data::GetNthAmmoMod(key);
+		if (!switchData)
+			return false;
+		_DEBUG("ammoSwitchDataOK");
+		return SwitchAmmoCommon(switchData);
+	}
+
+	bool SwitchAmmoCommon(SwitchData* switchData)
+	{
 		if (!(MSF_MainData::MCMSettingFlags & MSF_MainData::bReloadEnabled))
 		{
 			switchData->SwitchFlags |= SwitchData::bSwitchingInProgress;
@@ -75,107 +103,16 @@ namespace MSF_Base
 			delete switchData;
 			return false;
 		}
-
-		TESObjectWEAP::InstanceData* instance = Utilities::GetEquippedInstanceData(playerActor);
-		bool isBCR = MSF_Data::InstanceHasBCRSupport(instance);
-		bool isTR = MSF_Data::InstanceHasTRSupport(instance) || MSF_WeaponState::EquippedWeaponHasTRSupport(playerActor);
-		if (isBCR)
-		{
-			switchData->SwitchFlags |= SwitchData::bReloadZeroCount;
-			UInt32 targetAmmoCount = 0;
-			UInt32 currentAmmoCount = 0;
-			if (!(MSF_MainData::MCMSettingFlags & MSF_MainData::bRequireAmmoToSwitch))
-				targetAmmoCount = Utilities::GetInventoryItemCount((*g_player)->inventoryList, switchData->targetAmmo);
-			if (targetAmmoCount)
-			{
-				ExtraWeaponState* ws = MSF_MainData::weaponStateStore.GetEquipped(*g_player);
-				currentAmmoCount = Utilities::GetInventoryItemCount((*g_player)->inventoryList, ws->GetCurrentAmmo());
-			}
-			if (!targetAmmoCount || !currentAmmoCount)
-			{
-				switchData->SwitchFlags |= SwitchData::bSwitchingInProgress;
-				MSF_Base::SwitchMod(switchData, true);
-				if (targetAmmoCount && (*g_player)->actorState.IsWeaponDrawn() && MSF_MainData::MCMSettingFlags & MSF_MainData::bReloadEnabled)
-					MSF_Base::ReloadWeapon(false, true);
-				return true;
-			}
-		}
-		else if (isTR)
-			switchData->SwitchFlags |= SwitchData::bReloadFull;
-
-		if ((*g_player)->actorState.IsWeaponDrawn() && MSF_MainData::MCMSettingFlags & MSF_MainData::bReloadEnabled)
-		{
-			if (MSF_MainData::MCMSettingFlags & MSF_MainData::bReloadCompatibilityMode || switchData->SwitchFlags & SwitchData::bDoSwitchBeforeAnimations)
-			{
-				switchData->SwitchFlags |= SwitchData::bSwitchingInProgress;
-				MSF_Base::SwitchMod(switchData, true);
-				MSF_Base::ReloadWeapon(isTR && !isBCR, isBCR);
-				return true;
-			}
-			_DEBUG("toReload");
-			switchData->SwitchFlags |= (SwitchData::bSwitchingInProgress | SwitchData::bReloadInProgress); // | SwitchData::bReloadNotFinished
-			MSF_MainData::modSwitchManager.QueueSwitch(switchData);
-			UInt64 invammo = Utilities::GetInventoryItemCount(playerActor->inventoryList, switchData->targetAmmo);
-			Utilities::SetAnimationVariableInt(playerActor, "NextReloadAmmoCount", invammo > instance->ammoCapacity ? instance->ammoCapacity : invammo);
-			if (!MSF_Base::ReloadWeapon(switchData->SwitchFlags & SwitchData::bReloadFull, switchData->SwitchFlags & SwitchData::bReloadZeroCount))
-				MSF_MainData::modSwitchManager.ClearQueue();
-				//MSF_Base::SwitchMod(switchData, true);
-			return true;
-		}
-		else if (MSF_MainData::MCMSettingFlags & MSF_MainData::bDrawEnabled)
-		{
-			switchData->SwitchFlags |= (SwitchData::bSwitchingInProgress | SwitchData::bDrawInProgress | SwitchData::bReloadNeeded);
-			MSF_MainData::modSwitchManager.QueueSwitch(switchData);
-			Utilities::DrawWeapon(*g_player);
-			//delay check draw state
-			return true;
-		}
-		delete switchData;
-		return false;
-	}
-
-	//FROM HOTKEY:
-	bool SwitchAmmoHotkey(UInt8 key)
-	{
-		Actor* playerActor = *g_player;
-		_DEBUG("queueCount: %i; state: %02X; unk08: %08X; flags: %08X", MSF_MainData::modSwitchManager.GetQueueCount(), MSF_MainData::modSwitchManager.GetState(), playerActor->actorState.unk08, playerActor->actorState.flags);
-
-		if ((MSF_MainData::MCMSettingFlags & MSF_MainData::bReloadEnabled))// || (MSF_MainData::MCMSettingFlags & MSF_MainData::bDrawEnabled))
-		{
-			if (!MSF_Base::HandlePendingAnimations())
-				return false;
-		}
-		_DEBUG("animOK");
-
-		SwitchData* switchData = nullptr;
-		if (key & KeybindData::bToggle)
-			switchData = MSF_Data::GetNextAmmoMod();
-		else
-			switchData = MSF_Data::GetNthAmmoMod(key);
-		if (!switchData)
-			return false;
-		_DEBUG("ammoSwitchDataOK");
-
-		if (!(MSF_MainData::MCMSettingFlags & MSF_MainData::bReloadEnabled))
-		{
-			switchData->SwitchFlags |= SwitchData::bSwitchingInProgress;
-			MSF_Base::SwitchMod(switchData, true);
-			//if (MSF_MainData::MCMSettingFlags & MSF_MainData::bDrawEnabled)
-			//	Utilities::DrawWeapon(*g_player);
-			return true;
-		}
-
-		if (MSF_MainData::modSwitchManager.GetQueueCount() > 0 || MSF_MainData::modSwitchManager.GetState() != 0)
-			return false;
 		_DEBUG("queue/stateOK");
 
+		Actor* playerActor = *g_player;
 		TESObjectWEAP::InstanceData* instance = Utilities::GetEquippedInstanceData(playerActor);
 		bool isBCR = MSF_Data::InstanceHasBCRSupport(instance);
 		bool isTR = MSF_Data::InstanceHasTRSupport(instance) || MSF_WeaponState::EquippedWeaponHasTRSupport(playerActor);
 		if (isBCR)
 		{
 			switchData->SwitchFlags |= SwitchData::bReloadZeroCount;
-			UInt32 targetAmmoCount = 1;
+			UInt32 targetAmmoCount = 1; //0?
 			UInt32 currentAmmoCount = 0;
 			if (!(MSF_MainData::MCMSettingFlags & MSF_MainData::bRequireAmmoToSwitch))
 				targetAmmoCount = Utilities::GetInventoryItemCount(playerActor->inventoryList, switchData->targetAmmo);
@@ -227,6 +164,8 @@ namespace MSF_Base
 		delete switchData;
 		return false;
 	}
+
+
 
 	const char* EquipAmmoPipboy(TESAmmo* ammo, bool bEquip)
 	{

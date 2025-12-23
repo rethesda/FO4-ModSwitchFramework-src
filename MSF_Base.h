@@ -6,7 +6,8 @@
 namespace MSF_Base
 {
 	bool SwitchToSelectedAmmo(AmmoData::AmmoMod* selectedAmmo);//(void* obj)(void* obj);
-	bool SwitchAmmoHotkey(UInt8 key);
+	bool SwitchAmmoHotkey(UInt8 key, bool ignoreAnim = false, bool requireAmmo = false);
+	bool SwitchAmmoCommon(SwitchData* switchData);
 	const char* EquipAmmoPipboy(TESAmmo* ammo, bool bEquip);
 	bool SwitchToSelectedMod(ModData::Mod* modToAttach, ModData::Mod* modToRemove);//(void* modToAttach, void* modToRemove, bool bNeedInit);
 	bool ToggleModHotkey(ModData* modData);
