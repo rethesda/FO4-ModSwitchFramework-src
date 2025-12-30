@@ -3033,7 +3033,7 @@ namespace MSF_Data
 			return false; //no change
 		SwitchData* switchRemove = nullptr;
 		SwitchData* switchAttach = nullptr;
-		if (modToRemove && (!modToAttach || (modToRemove->flags & ModData::Mod::bStandaloneRemove) || (modToAttach && (modToRemove->flags & ModData::Mod::bStandaloneAttach))))
+		if (modToRemove && (!modToAttach || (modToRemove->flags & ModData::Mod::bStandaloneRemove) || (modToAttach && (modToAttach->flags & ModData::Mod::bStandaloneAttach))))
 		{
 			if (!(modToRemove->flags & SwitchData::bIgnoreAnimations))
 			{
@@ -3076,7 +3076,7 @@ namespace MSF_Data
 			switchAttach->SwitchFlags = modToAttach->flags & ModData::Mod::mBitTransferMask;
 			if (!switchRemove && modToRemove)
 			{
-				switchAttach->ModToRemove = modToRemove->mod;
+				//switchAttach->ModToRemove = modToRemove->mod;
 				switchAttach->LooseModToAdd = (modToRemove->flags & ModData::Mod::bRequireLooseMod) ? Utilities::GetLooseMod(modToRemove->mod) : nullptr;
 				switchAttach->SwitchFlags &= ~(modToRemove->flags & ModData::Mod::bNotRequireWeaponToBeDrawn);
 				switchAttach->SwitchFlags |= modToRemove->flags & ModData::Mod::bUpdateAnimGraph;

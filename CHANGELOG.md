@@ -1,12 +1,14 @@
 ---
 v1.2.2
 features:
+- animation graph updates now occur for every mod switch, from now on use the bUpdateAnimGraph flag only if the equip action should be played
 - when an ammo type runs out, now it is possible to automatically switch to the next/first available ammo type (can be set in the MCM)
 - autolower now can be set to be ignored if the pipboy light is on
 fixes:
 - fixed potential memory leak with SwitchData
 - fixed potential CTD with the emptyMag animation event
 - fixed erroneous BCR/TR logic when switching ammo from UI menus
+- fixed a bug that caused OMODs to be removed before the new OMOD was attached during a mod switch
 ---
 v1.2.1
 features:

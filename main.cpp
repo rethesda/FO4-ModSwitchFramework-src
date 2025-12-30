@@ -249,6 +249,7 @@ bool WriteHooks()
 	AttackInputHandlerSelf_Copied = HookUtil::GetFnPtrFromCall5(AttackInputHandler_SelfHookTarget.GetUIntPtr(), &AttackInputHandlerReload_Hook);
 	HUDShowAmmoCounter_Copied = HookUtil::GetFnPtrFromCall5(HUDShowAmmoCounter_HookTarget.GetUIntPtr(), &HUDShowAmmoCounter_Hook);
 	EquipHandler_UpdateAnimGraph_Copied = HookUtil::GetFnPtrFromCall5(EquipHandler_UpdateAnimGraph_HookTarget.GetUIntPtr(), &EquipHandler_UpdateAnimGraph_Hook);
+	EquipHandler_PlayEquipAction_Copied = HookUtil::GetFnPtrFromCall5(EquipHandler_PlayEquipAction_HookTarget.GetUIntPtr(), &EquipHandler_PlayEquipAction_Hook);
 	AttachModToStack_CallFromGameplay_Copied = HookUtil::GetFnPtrFromCall5(AttachModToStack_CallFromGameplay_HookTarget.GetUIntPtr(), &AttachModToStack_CallFromGameplay_Hook);
 	AttachModToStack_CallFromWorkbenchUI_Copied = HookUtil::GetFnPtrFromCall5(AttachModToStack_CallFromWorkbenchUI_HookTarget.GetUIntPtr(), &AttachModToStack_CallFromWorkbenchUI_Hook);
 	DeleteExtraData_CallFromWorkbenchUI_Copied = HookUtil::GetFnPtrFromCall5(DeleteExtraData_CallFromWorkbenchUI_HookTarget.GetUIntPtr(), &DeleteExtraData_CallFromWorkbenchUI_Hook);
@@ -458,6 +459,7 @@ bool WriteHooks()
 	g_branchTrampoline.Write5Call(AttackInputHandler_SelfHookTarget.GetUIntPtr(), (uintptr_t)AttackInputHandlerReload_Hook);
 	g_branchTrampoline.Write5Call(HUDShowAmmoCounter_HookTarget.GetUIntPtr(), (uintptr_t)HUDShowAmmoCounter_Hook);
 	g_branchTrampoline.Write5Call(EquipHandler_UpdateAnimGraph_HookTarget.GetUIntPtr(), (uintptr_t)EquipHandler_UpdateAnimGraph_Hook);
+	g_branchTrampoline.Write5Call(EquipHandler_PlayEquipAction_HookTarget.GetUIntPtr(), (uintptr_t)EquipHandler_PlayEquipAction_Hook);
 	g_branchTrampoline.Write5Call(AttachModToStack_CallFromGameplay_HookTarget.GetUIntPtr(), (uintptr_t)AttachModToStack_CallFromGameplay_Hook);
 	g_branchTrampoline.Write5Call(AttachModToStack_CallFromWorkbenchUI_HookTarget.GetUIntPtr(), (uintptr_t)AttachModToStack_CallFromWorkbenchUI_Hook);
 	g_branchTrampoline.Write5Call(DeleteExtraData_CallFromWorkbenchUI_HookTarget.GetUIntPtr(), (uintptr_t)DeleteExtraData_CallFromWorkbenchUI_Hook);

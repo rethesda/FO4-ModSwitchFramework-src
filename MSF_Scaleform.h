@@ -285,7 +285,8 @@ public:
 
 	MSFMenu() : GameMenuBase()
 	{
-		flags = kFlag_AllowSaving | kFlag_AlwaysOpen;// | kFlag_ApplyDropDownFilter | kFlag_Unk800000 | kFlag_DisableInteractive;// | 0x40000 | 0x80000 | 0x200000;
+		flags = kFlag_AllowSaving | kFlag_AlwaysOpen;// | kFlag_UsesCursor | kFlag_UpdateUsesCursor | kFlag_PausesGame | kFlag_FreezeFrameBackground //| kFlag_ApplyDropDownFilter | kFlag_Unk800000 | kFlag_DisableInteractive;// | 0x40000 | 0x80000 | 0x200000;
+		//kFlag_UsesMenuContext kFlag_FreezeFramePause kFlag_DontHideCursorWhenTopmost kFlag_UsesBlurredBackground
 		depth = 0x6;
 		if (CALL_MEMBER_FN((*g_scaleformManager), LoadMovie)(this, this->movie, "MSFMenu", "root1", 0))
 		{

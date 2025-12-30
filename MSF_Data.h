@@ -362,6 +362,7 @@ public:
 	volatile UInt16 dontPutYourGunIn;
 private:
 	volatile UInt16 ignoreAnimGraphUpdate;
+	volatile UInt16 ignorePlayEquipAction;
 	volatile UInt16 ignoreDeleteExtraData;
 	volatile UInt16 shouldBlendAnimation;
 	volatile UInt16 modChangeEvent;
@@ -409,6 +410,7 @@ public:
 		displayedModChoices.reserve(20);
 		InterlockedExchange16((volatile short*)&switchState, 0);
 		InterlockedExchange16((volatile short*)&ignoreAnimGraphUpdate, 0);
+		InterlockedExchange16((volatile short*)&ignorePlayEquipAction, 0);
 		InterlockedExchange16((volatile short*)&ignoreDeleteExtraData, 0);
 		InterlockedExchange16((volatile short*)&modChangeEvent, 0);
 		InterlockedExchangePointer((void* volatile*)&openedMenu, nullptr);
@@ -431,6 +433,8 @@ public:
 	void SetState(UInt16 state) { InterlockedExchange16((volatile short*)&switchState, state); };
 	void SetIgnoreAnimGraph(bool bIgnore) { InterlockedExchange16((volatile short*)&ignoreAnimGraphUpdate, bIgnore); };
 	bool GetIgnoreAnimGraph() { return ignoreAnimGraphUpdate; };
+	void SetIgnoreEquipAction(bool bIgnore) { InterlockedExchange16((volatile short*)&ignorePlayEquipAction, bIgnore); };
+	bool GetIgnoreEquipAction() { return ignorePlayEquipAction; };
 	void SetIgnoreDeleteExtraData(bool bIgnore) { InterlockedExchange16((volatile short*)&ignoreDeleteExtraData, bIgnore); };
 	bool GetIgnoreDeleteExtraData() { return ignoreDeleteExtraData; };
 	void SetShouldBlendAnimation(bool bBlend) { InterlockedExchange16((volatile short*)&shouldBlendAnimation, bBlend); };
@@ -565,6 +569,7 @@ public:
 	{
 		ClearQueue(); 
 		InterlockedExchange16((volatile short*)&ignoreAnimGraphUpdate, 0);
+		InterlockedExchange16((volatile short*)&ignorePlayEquipAction, 0);
 		InterlockedExchange16((volatile short*)&ignoreDeleteExtraData, 0);
 		InterlockedExchange16((volatile short*)&modChangeEvent, 0);
 		InterlockedExchangePointer((void* volatile*)&openedMenu, nullptr);

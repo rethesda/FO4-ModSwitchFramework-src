@@ -6,6 +6,7 @@ AttackInputHandler AttackInputHandlerSelf_Copied;
 uintptr_t ActorEquipManagerPre_Copied;
 HUDShowAmmoCounter HUDShowAmmoCounter_Copied;
 _UpdateAnimGraph EquipHandler_UpdateAnimGraph_Copied;
+_PlayEquipAction EquipHandler_PlayEquipAction_Copied;
 _AttachModToStack AttachModToStack_CallFromGameplay_Copied;
 _AttachModToStack AttachModToStack_CallFromWorkbenchUI_Copied;
 _DeleteExtraData DeleteExtraData_CallFromWorkbenchUI_Copied;
@@ -229,6 +230,7 @@ EventResult	PlayerInventoryListEventSink::ReceiveEvent(BGSInventoryListEventData
 EventResult	MenuOpenCloseSink::ReceiveEvent(MenuOpenCloseEvent * evn, void * dispatcher)
 {
 	const char* name = evn->menuName.c_str();
+	_DEBUG("MenuEvn: %s, %02X", name, evn->isOpen);
 	if (!_strcmpi("pauseMenu", name) && !evn->isOpen)
 	{
 		MSF_Data::ReadMCMKeybindData();
@@ -416,12 +418,24 @@ const char* CannotEquipItem_Hook(TESObjectREFR* target, TESForm* item, UInt32 un
 
 void* EquipHandler_UpdateAnimGraph_Hook(Actor* actor, bool unk_rdx)
 {
+
 	if (MSF_MainData::modSwitchManager.GetIgnoreAnimGraph())
 		MSF_MainData::modSwitchManager.SetIgnoreAnimGraph(false);
 	else
+	{
+		if (MSF_MainData::modSwitchManager.GetIgnoreEquipAction())
+			unk_rdx = false;
 		return EquipHandler_UpdateAnimGraph_Copied(actor, unk_rdx);
 		//return UpdateAnimGraph(actor, unk_rdx);
+	}
 	return 0;
+}
+
+void EquipHandler_PlayEquipAction_Hook(Actor* actor, bool unk_rdx)
+{
+	if (MSF_MainData::modSwitchManager.GetIgnoreEquipAction())
+		return;
+	return EquipHandler_PlayEquipAction_Copied(actor, unk_rdx);
 }
 
 void AttachRemoveModInternal_Hook(Actor* actor, TESBoundObject* baseItem, CheckStackIDFunctor* CheckStackIDFunctor, StackDataWriteFunctor* ModifyModDataFunctor, void* arg_1, void* arg_2, void* arg_3, void* arg_4, void* arg_5, void* arg_6, void* arg_7)

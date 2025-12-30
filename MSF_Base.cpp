@@ -584,7 +584,10 @@ namespace MSF_Base
 
 		//_DEBUG("mod ammo count1: %i", eqData->loadedAmmoCount);
 		MSF_MainData::modSwitchManager.SetModChangeEvent(true);
-		MSF_MainData::modSwitchManager.SetIgnoreAnimGraph(true);
+		if (updateAnimGraph)
+			MSF_MainData::modSwitchManager.SetIgnoreAnimGraph(true);
+		else
+			MSF_MainData::modSwitchManager.SetIgnoreEquipAction(true);
 		MSF_MainData::modSwitchManager.SetDontPutYourGunIn(true);
 		EquipItemInternal(g_ActorEquipManager, actor, idStruct, 0, 1, nullptr, 0, 0, 0, 1, 0);
 		MSF_MainData::modSwitchManager.SetDontPutYourGunIn(false);
@@ -643,6 +646,8 @@ namespace MSF_Base
 		//EquipHandler(unk_05AB38D0, actor, idStruct, equipSlotStruct);
 		if (updateAnimGraph)
 			UpdateAnimGraph(actor, false);
+		else
+			MSF_MainData::modSwitchManager.SetIgnoreEquipAction(false);
 		//UnkSub_DFE930(actor, false);
 		/*
 		PrintStackData(actor, weapBase);

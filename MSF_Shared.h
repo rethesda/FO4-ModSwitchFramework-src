@@ -787,6 +787,7 @@ typedef bool(*_ModifyStackData)(BGSInventoryItem* invItem, BGSInventoryItem::Sta
 typedef bool(*_UpdMidProc)(Actor::AIProcess* midProc, Actor* actor, BGSObjectInstance weaponBaseStruct, BGSEquipSlot* equipSlot);
 typedef void(*_UpdateEquipData)(BipedAnim* equipData, BGSObjectInstance instance, UInt32* r8d);
 typedef void*(*_UpdateAnimGraph)(Actor* actor, bool rdx);
+typedef void(*_PlayEquipAction)(Actor* actor, bool rdx);
 typedef void(*_UpdateEnchantments)(Actor* actor, BGSObjectInstance BGSObjectInstance, ExtraDataList* extraDataList);
 typedef void(*_UpdateAVModifiers)(ActorStruct actorStruct, tArray<TBO_InstanceData::ValueModifier>* valueModifiers);
 typedef void(*_UpdateAnimValueFloat)(IAnimationGraphManagerHolder* animManager, void* dataHolder, float newValue);
@@ -903,8 +904,9 @@ extern RelocAddr <_AttachModToInventoryItem> AttachModToInventoryItem_Internal;
 extern RelocAddr <_AttachModToStack> AttachRemoveModStack;
 extern RelocAddr <_ModifyStackData> ModifyStackData;
 extern RelocAddr <_UpdMidProc> UpdateMiddleProcess;
-extern RelocAddr <_UpdateEquipData> UpdateEquipData;
+extern RelocAddr <_UpdateEquipData> UpdateEquipData; 
 extern RelocAddr <_UpdateAnimGraph> UpdateAnimGraph;
+extern RelocAddr <_PlayEquipAction> PlayEquipAction;
 extern RelocAddr <_UpdateEnchantments> UpdateEnchantments;
 extern RelocAddr <_UpdateAVModifiers> UpdateAVModifiers;
 extern RelocAddr <_UpdateAnimValueFloat> UpdateAnimValueFloat;
