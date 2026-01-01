@@ -91,6 +91,40 @@ void WritePutYourGunInCompatibility()
 #endif
 }
 
+bool WriteF4SEScaleformHook()
+{
+	//_DEBUG("menu create hook: %p, mapsize: %08X", IMenuCreateHook_Start.GetUIntPtr(), sizeof(g_customMenuData));
+	//_DEBUG("testaddr: %p, testaddr2: %0p", &RegisterCustomMenu, &g_customMenuDataX);
+	uintptr_t target = HookUtil::GetFnPtrFromCall5(IMenuCreateHook_Start.GetUIntPtr());
+	//_DEBUG("target: %p", target);
+	if (target)
+	{
+		target += 6;
+		uintptr_t target2 = 0;
+		HookUtil::SafeReadBuf(target, &target2, sizeof(target2));
+		//_DEBUG("target2: %p", target2);
+		if (target2)
+		{
+			target2 += 0x1F;
+			uintptr_t LoadFnHook = 0;
+			//HookUtil::SafeReadBuf(target2, &LoadFnHook, sizeof(LoadFnHook));
+			LoadCustomMenu_F4SEHook = HookUtil::SafeWrite64(target2, &LoadMSFCustomMenu_Hook);
+			//_DEBUG("LoadFnHook: %p", LoadFnHook);
+			//LoadFnHook += 0x164 + 0x3;
+			//SInt32 displ = 0;
+			//uintptr_t mapaddr = 0;
+			//HookUtil::SafeReadBuf(LoadFnHook, &displ, sizeof(displ));
+			//uintptr_t nextInstr = LoadFnHook + 0x4;
+			//mapaddr = static_cast<ptrdiff_t>(displ) + nextInstr; //F8D8
+			//mapaddr -= 0x8;
+			//_DEBUG("mapaddr: %p", mapaddr);+
+			if (LoadCustomMenu_F4SEHook)
+				return true;
+		}
+	}
+	return false;
+}
+
 bool RegisterAfterLoadEvents()
 {
 	auto eventDispatcher1 = GET_EVENT_DISPATCHER(PlayerAmmoCountEvent);
@@ -174,8 +208,8 @@ public:
 			//if (translator) {
 			//	SSWTranslator::LoadTranslations(translator);
 			//}
-			MSFMenu::RegisterMenu();
-			MSFMenu::OpenMenu();
+			MSFMenu::RegisterMenu(); //!/registermenus
+			MSFMenu::OpenMenu(); //!/comment
 			delete MSF_MainData::ammoDisplay;
 			MSF_MainData::ammoDisplay = HUDMenuAmmoDisplay::Init();
 
@@ -212,7 +246,8 @@ void F4SEMessageHandler(F4SEMessagingInterface::Message* msg)
 			else
 			{
 				WritePutYourGunInCompatibility();
-
+				if (!WriteF4SEScaleformHook())
+					_MESSAGE("ERROR - Could not write F4SE Custom Menu Hook.");
 				static auto pLoadGameHandler = new TESLoadGameHandler();
 				GetEventDispatcher<TESLoadGameEvent>()->AddEventSink(pLoadGameHandler);
 				MSF_Scaleform::ReceiveKeyEvents();

@@ -71,6 +71,11 @@ extern RelocAddr <_GetSelectedForm> GetSelectedForm_Original;
 typedef BGSInventoryItem* (*_GetSelectedItem)(ItemMenuDataManager* mgr, UInt32& handleID);
 extern RelocAddr <_GetSelectedItem> GetSelectedItem_Original;
 
+extern RelocAddr<uintptr_t> IMenuCreateHook_Start;
+typedef void(*_LoadCustomMenu)(IMenu* menu);
+extern _LoadCustomMenu LoadCustomMenu_F4SEHook;
+void LoadMSFCustomMenu_Hook(IMenu* menu);
+
 class ItemMenuDataManager
 {
 public:
@@ -326,76 +331,6 @@ public:
 
 	virtual UInt32	ProcessMessage(UIMessage * msg) final
 	{
-		GFxMovieRoot * root = movie->movieRoot;
-		GFxValue ValueToSet;
-		//_DEBUG("message proc!!");
-		/*
-		switch (msg->type)
-		{
-		case kMessage_UpdateModSettings:
-		{
-			//_DEBUG("UpdateModSettings");
-			if (isHMO)
-			{
-				GFxValue arr;
-				root->GetVariable(&arr, "root.Menu_mc.trans_food_HMO");
-				root->SetVariable("root.Menu_mc.trans_food", &arr);
-
-				ValueToSet.SetInt(isHMO ? 1 : 0);
-				root->SetVariable("root.Menu_mc.isHMO", &ValueToSet);
-			}
-
-			ValueToSet.SetInt(iColored);
-			root->SetVariable("root.Menu_mc.iColored", &ValueToSet);
-
-			ValueToSet.SetInt(iFoodBarVisible);
-			root->SetVariable("root.Menu_mc.iFoodBarVisible", &ValueToSet);
-
-			root->Invoke("root.Menu_mc.UpdateModSettings", nullptr, nullptr, 0);
-			break;
-		}
-		case kMessage_UpdateValues:
-		{
-			//_DEBUG("UpdateValues");
-
-			ValueToSet.SetInt(iFoodPool);
-			root->SetVariable("root.Menu_mc.iFoodPool", &ValueToSet);
-
-			if (isHMO)
-			{
-				ValueToSet.SetInt(iSleepPool);
-			}
-			else
-			{
-				ValueToSet.SetInt(-(SInt32)(*g_player)->actorValueOwner.GetValue(HC_SleepEffect));
-			}
-			root->SetVariable("root.Menu_mc.iSleepPool", &ValueToSet);
-
-			ValueToSet.SetInt((SInt32)(*g_player)->actorValueOwner.GetValue(HC_HungerEffect));
-			root->SetVariable("root.Menu_mc.iFoodStatus", &ValueToSet);
-
-			ValueToSet.SetInt((SInt32)(*g_player)->actorValueOwner.GetValue(HC_ThirstEffect));
-			root->SetVariable("root.Menu_mc.iDrinkStatus", &ValueToSet);
-
-			ValueToSet.SetInt((SInt32)(*g_player)->actorValueOwner.GetValue(HC_SleepEffect));
-			root->SetVariable("root.Menu_mc.iSleepStatus", &ValueToSet);
-
-			root->Invoke("root.Menu_mc.UpdateValues", nullptr, nullptr, 0);
-			break;
-		}
-		case kMessage_UpdateAmounts:
-		{
-			//_DEBUG("UpdateAmounts");
-
-			ValueToSet.SetInt(iSleepPoolIncapacitatedAmount);
-			root->SetVariable("root.Menu_mc.iSleepPoolIncapacitatedAmount", &ValueToSet);
-
-			root->Invoke("root.Menu_mc.UpdateAmounts", nullptr, nullptr, 0);
-		}
-		default:
-			break;
-		}
-		*/
 		return this->GameMenuBase::ProcessMessage(msg);
 	};
 
@@ -434,8 +369,10 @@ public:
 	}
 };
 
-struct MSFCustomMenuData
+class MSFCustomMenuData
 {
+public:
+	BSFixedString	menuName;
 	BSFixedString	menuPath;
 	BSFixedString	rootPath;
 	UInt32			menuFlags;
@@ -452,36 +389,36 @@ struct MSFCustomMenuData
 
 class MSFCustomMenu : CustomMenu
 {
+public:
+	static bool RegisterCustomMenu(MSFCustomMenuData* menuData)
+	{
+		if (menuData && !(*g_ui)->IsMenuRegistered(menuData->menuName))
+		{
+			menuLock.Lock();
+			customMenuData[menuData->menuName.c_str()] = menuData;
+			(*g_ui)->Register(menuData->menuName.c_str(), CreateCustomMSFMenu);
+			menuLock.Release();
+			return true;
+		}
+		return false;
+	}
 
+	static void OpenMenu(BSFixedString menuName)
+	{
+		CALL_MEMBER_FN((*g_uiMessageManager), SendUIMessage)(menuName, kMessage_Open);
+	}
+
+	static void CloseMenu(BSFixedString menuName)
+	{
+		CALL_MEMBER_FN((*g_uiMessageManager), SendUIMessage)(menuName, kMessage_Close);
+	}
+
+	static IMenu* CreateCustomMSFMenu()
+	{
+		return new MSFCustomMenu();
+	}
+
+	static SimpleLock menuLock;
+	static std::unordered_map<std::string, MSFCustomMenuData*> customMenuData;
+	static std::vector<MSFCustomMenu*> menuHandles;
 };
-
-
-		//case VMValue::kType_Struct:
-		//{
-		//	VMStructTypeInfo * structType = static_cast<VMStructTypeInfo*>(src->GetComplexType());
-		//	VMValue::StructData * structData = src->data.strct;
-		//	if (structType && structData) {
-		//		root->CreateObject(dest);
-		//		GFxValue gStructObject;
-		//		root->CreateObject(&gStructObject);
-		//		dest->SetMember("__struct__", &gStructObject);
-
-		//		GFxValue gStructName;
-		//		root->CreateString(&gStructName, structType->m_typeName.c_str());
-		//		gStructObject.SetMember("__type__", &gStructName);
-
-		//		GFxValue gStructPairs;
-		//		root->CreateObject(&gStructPairs);
-		//		gStructObject.SetMember("__data__", &gStructPairs);
-
-		//		structType->m_members.ForEach([&gStructPairs, &structData, &root](VMStructTypeInfo::MemberItem * item)
-		//		{
-		//			GFxValue value;
-		//			ConvertPapyrusValue(&value, &structData->GetStruct()[item->index], root);
-		//			gStructPairs.SetMember(item->name.c_str(), &value);
-		//			return true;
-		//		});
-		//		return true;
-		//	}
-		//}
-		//break;

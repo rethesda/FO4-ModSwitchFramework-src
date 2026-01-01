@@ -958,24 +958,24 @@ namespace MSF_Data
 							_MESSAGE("Keybind read warning in %s: keybind with id '%s' has been overwritten", modName.c_str(), id.c_str());
 							KeybindData* kb = kbIt->second;
 							std::string menuName = keybind["menuName"].asString();
-							UInt16 flags = keybind["keyfunction"].asInt();
+							UInt16 type = keybind["keyfunction"].asInt();
 							std::string str = keybind["successSound"].asString();
 							BGSSoundDescriptorForm* successSound = nullptr;
 							if (str != "")
 								successSound = DYNAMIC_CAST(Utilities::GetFormFromIdentifier(str), TESForm, BGSSoundDescriptorForm);
-							if ((menuName == "") && (flags & KeybindData::bHUDselection))
+							if ((menuName == "") && (type & KeybindData::bHUDselection))
 							{
 								_MESSAGE("Keybind read error in %s: if 'bHUDselection' flag is set 'menuName' can not be an empty string", modName.c_str());
 								continue;
 							}
-							if (flags & KeybindData::bHUDselection)
+							if (type & KeybindData::bHUDselection)
 							{
 								UInt8 type = 0;
-								if (flags & KeybindData::bGlobalMenu)
+								if (type & KeybindData::bGlobalMenu)
 									type = ModSelectionMenu::kType_Global;
-								else if (flags & KeybindData::bMenuBoth)
+								else if (type & KeybindData::bMenuBoth)
 									type = ModSelectionMenu::kType_All;
-								else if (flags & KeybindData::bIsAmmo)
+								else if (type & KeybindData::bIsAmmo)
 									type = ModSelectionMenu::kType_AmmoMenu;
 								else
 									type = ModSelectionMenu::kType_ModMenu;
@@ -987,11 +987,38 @@ namespace MSF_Data
 								}
 								else
 									kb->selectMenu = new ModSelectionMenu(menuName, type);
+								const Json::Value& menuData = keybind["menuData"];
+								delete kb->selectMenu->customMenuData;
+								std::string root = "root1";
+								UInt32 menuFlags = IMenu::kFlag_AllowSaving;
+								UInt32 movieFlags = 0;
+								UInt32 extFlags = 0;
+								UInt32 depth = 6;
+								if (!menuData.isNull())
+								{
+									Json::Value menuDataObj = menuData["root"];
+									std::string rootstr = menuDataObj.asString();
+									if (menuDataObj.isString() && rootstr != "")
+										root = rootstr;
+									menuDataObj = menuData["menuFlags"];
+									if (menuDataObj.isInt())
+										menuFlags = menuDataObj.asInt() & ~(IMenu::kFlag_AlwaysOpen | IMenu::kFlag_OnStack | IMenu::kFlag_AdvancesUnderPauseMenu);
+									menuDataObj = menuData["movieFlags"];
+									if (menuDataObj.isInt())
+										movieFlags = menuDataObj.asInt();
+									menuDataObj = menuData["extFlags"];
+									if (menuDataObj.isInt())
+										extFlags = menuDataObj.asInt();
+									menuDataObj = menuData["depth"];
+									if (menuDataObj.isInt())
+										depth = menuDataObj.asInt();
+								}
+								kb->selectMenu->customMenuData = new MSFCustomMenuData{ BSFixedString(menuName.c_str()), BSFixedString(menuName.c_str()), BSFixedString(root.c_str()), menuFlags, movieFlags, extFlags, depth };
 							}
 							else
 							{
 								kb->selectMenu = nullptr;
-								kb->type = flags;
+								kb->type = type;
 							}
 							kb->successSound = successSound;
 						}

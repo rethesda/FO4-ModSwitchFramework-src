@@ -256,14 +256,14 @@ EventResult	MenuOpenCloseSink::ReceiveEvent(MenuOpenCloseEvent * evn, void * dis
 		{
 			//_DEBUG("CloseMSFMenu");
 			MSF_MainData::modSwitchManager.CloseOpenedMenu();
-			MSFMenu::CloseMenu();
+			MSFMenu::CloseMenu(); //!/close current open (maybe don't have to)
 			MSFWidgetMenu::CloseMenu();
 
 		}
 		else
 		{
 			//_DEBUG("OpenMSFMenu from MenuOpenCloseHandler");
-			MSFWidgetMenu::OpenMenu();
+			MSFWidgetMenu::OpenMenu(); //!/remove
 			//MSFMenu::RegisterMenu();
 			MSFMenu::OpenMenu();
 		}

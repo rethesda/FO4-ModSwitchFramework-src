@@ -8,6 +8,7 @@ class HUDMenuAmmoDisplay;
 class BCRinterface;
 class BurstModeManager;
 class BurstModeData;
+class MSFCustomMenuData;
 
 class AmmoData
 {
@@ -181,9 +182,8 @@ class ModSelectionMenu
 public:
 	std::string scaleformName;
 	UInt8 type;
-	UInt16 flags;
 	UInt32 version;
-	//CustomMenu* customMenu;
+	MSFCustomMenuData* customMenuData;
 	AnimationData* menuAnimation;
 	enum
 	{
@@ -194,7 +194,7 @@ public:
 		kType_Global = 4
 	};
 	ModSelectionMenu(std::string name, UInt8 menuType){
-		scaleformName = name; type = menuType; version = 0; flags = 0; menuAnimation = nullptr;
+		scaleformName = name; type = menuType; version = 0; menuAnimation = nullptr; customMenuData = nullptr;
 	};
 };
 
@@ -455,7 +455,7 @@ public:
 	int GetOpenedMenus() { return numberOfOpenedMenus; };
 	ModSelectionMenu* GetOpenedMenu() { return openedMenu; };
 	void SetOpenedMenu(ModSelectionMenu* menu) { InterlockedExchangePointer((void* volatile*)&openedMenu, menu); };
-	bool CloseOpenedMenu() 
+	bool CloseOpenedMenu() //!/rewrite
 	{ 
 		if (!openedMenu)
 			return true;

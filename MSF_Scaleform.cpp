@@ -3,7 +3,10 @@
 #include "MSF_WeaponState.h"
 #include "MSF_BurstMode.h"
 
-
+_LoadCustomMenu LoadCustomMenu_F4SEHook;
+SimpleLock MSFCustomMenu::menuLock;
+std::unordered_map<std::string, MSFCustomMenuData*> MSFCustomMenu::customMenuData;
+std::vector<MSFCustomMenu*> MSFCustomMenu::menuHandles;
 
 void HandleInputEvent(ButtonEvent * inputEvent)
 {
@@ -288,6 +291,53 @@ public:
 };
 
 F4SEInputHandlerSink inputHandler;
+
+void LoadMSFCustomMenu_Hook(IMenu* menu)
+{
+	MSFCustomMenu::menuLock.Lock();
+	_DEBUG("looking for: %s", menu->menuName.c_str());
+	auto menuData = MSFCustomMenu::customMenuData.find(menu->menuName.c_str());
+	if (menuData != MSFCustomMenu::customMenuData.end())
+	{
+		BSFixedString menuPath = menuData->second->menuPath;
+		BSFixedString rootPath = menuData->second->rootPath;
+		UInt32 movieFlags = menuData->second->movieFlags;
+		UInt32 extFlags = menuData->second->extFlags;
+		menu->flags = menuData->second->menuFlags;
+		menu->depth = menuData->second->depth;
+
+		if ((menu->flags & IMenu::kFlag_UsesCursor) && (extFlags & CustomMenuData::kExtFlag_CheckForGamepad))
+		{
+			if ((*g_inputDeviceMgr)->IsGamepadEnabled())
+				menu->flags &= ~IMenu::kFlag_UsesCursor;
+		}
+
+		if (CALL_MEMBER_FN((*g_scaleformManager), LoadMovie)(menu, menu->movie, menuPath.c_str(), rootPath.c_str(), movieFlags))
+		{
+			menu->stage.SetMember("menuFlags", &GFxValue(menu->flags));
+			menu->stage.SetMember("movieFlags", &GFxValue(movieFlags));
+			menu->stage.SetMember("extendedFlags", &GFxValue(extFlags));
+
+			GameMenuBase* gameMenu = static_cast<GameMenuBase*>(menu);
+
+			CreateBaseShaderTarget(gameMenu->filterHolder, menu->stage);
+
+			if (extFlags & CustomMenuData::kExtFlag_InheritColors)
+			{
+				gameMenu->filterHolder->SetFilterColor(false);
+				(*g_colorUpdateDispatcher)->eventDispatcher.AddEventSink(gameMenu->filterHolder);
+			}
+
+			if (menu->flags & IMenu::kFlag_CustomRendering)
+			{
+				gameMenu->shaderFXObjects.Push(gameMenu->filterHolder);
+			}
+		}
+	}
+	else
+		LoadCustomMenu_F4SEHook(menu);
+	MSFCustomMenu::menuLock.Release();
+}
 
 
 bool PipboyMenu::CreateItemData(PipboyMenu::ScaleformArgs* args, std::string text, std::string value)
@@ -626,7 +676,7 @@ namespace MSF_Scaleform
 		dst->SetMember(name, &fxValue);
 	}
 
-	UInt32 GetInterfaceVersion() //ModSelectionMenu* customMenu
+	UInt32 GetInterfaceVersion() //!/rewrite
 	{
 		IMenu * pHUD = nullptr;
 		static BSFixedString menuName("MSFMenu");
@@ -805,7 +855,7 @@ namespace MSF_Scaleform
 		//check conditions
 		//cross check custom and MSFMenu
 		_DEBUG("selectmenu");
-		static BSFixedString menuName("MSFMenu");
+		static BSFixedString menuName("MSFMenu"); //!/rewrite
 		IMenu* MSFmenu = (*g_ui)->GetMenu(menuName);
 		if (!MSFmenu)
 			return nullptr;
@@ -959,7 +1009,7 @@ namespace MSF_Scaleform
 		return true;
 	}
 
-	bool ToggleSelectionMenu(ModSelectionMenu* selectMenu, ModData* mods)
+	bool ToggleSelectionMenu(ModSelectionMenu* selectMenu, ModData* mods) //!/rewrite
 	{
 		//if anim, play anim, set menu to open
 		GFxMovieRoot* menuRoot = HandleToggleMenu(selectMenu);
@@ -1206,8 +1256,6 @@ namespace MSF_Scaleform
 		RegisterFunction<SendF4SEVersion>(codeObj, movieRoot, "GetF4SEVersion");
 		RegisterFunction<SendGameVersion>(codeObj, movieRoot, "GetGameVersion");
 		RegisterFunction<SendMSFVersion>(codeObj, movieRoot, "GetMSFVersion");
-		RegisterFunction<SendWidgetUpdate>(codeObj, movieRoot, "RequestWidgetUpdate");
-		RegisterFunction<SendWidgetSettings>(codeObj, movieRoot, "RequestWidgetSettings");
 		RegisterFunction<ReceiveScaleformProperties>(codeObj, movieRoot, "SendInterfaceProperties");
 		RegisterFunction<MenuClosedEventSink>(codeObj, movieRoot, "MenuClosedEventDispatcher");
 		RegisterFunction<MenuOpenedEventSink>(codeObj, movieRoot, "MenuOpenedEventDispatcher");
@@ -1217,6 +1265,12 @@ namespace MSF_Scaleform
 		RegisterFunction<ReceiveSelectedModIdx>(codeObj, movieRoot, "SendBackSelectedModIdx");
 	}
 
+	void RegisterMSFwidgetFuncs(GFxValue* codeObj, GFxMovieRoot* movieRoot)
+	{
+		RegisterFunction<SendWidgetUpdate>(codeObj, movieRoot, "RequestWidgetUpdate");
+		RegisterFunction<SendWidgetSettings>(codeObj, movieRoot, "RequestWidgetSettings");
+	}
+
 	bool RegisterScaleformCallback(GFxMovieView * view, GFxValue * f4se_root)
 	{
 		GFxMovieRoot* movieRoot = view->movieRoot;
@@ -1224,12 +1278,19 @@ namespace MSF_Scaleform
 		GFxValue currentSWFPath;
 		const char* currentSWFPathString = nullptr;
 
-		if (movieRoot->GetVariable(&currentSWFPath, "root.loaderInfo.url")) {
+		if (movieRoot->GetVariable(&currentSWFPath, "root.loaderInfo.url")) 
 			currentSWFPathString = currentSWFPath.GetString();
-		}
 
+		if (currentSWFPathString && strcmp(currentSWFPathString, "Interface/MSFwidget.swf") == 0)
+		{
+			GFxValue root; movieRoot->GetVariable(&root, "root");
+			GFxValue msf; movieRoot->CreateObject(&msf);
+			root.SetMember("msf", &msf);
+			RegisterMSFScaleformFuncs(&msf, movieRoot);
+		}
 		// Look for the menu that we want to inject into.
-		if (currentSWFPathString && strcmp(currentSWFPathString, "Interface/MSFMenu.swf") == 0) {
+		else if (currentSWFPathString && strcmp(currentSWFPathString, "Interface/MSFMenu.swf") == 0) 
+		{
 			GFxValue root; movieRoot->GetVariable(&root, "root");
 			MSF_MainData::MSFMenuRoot = movieRoot;
 
@@ -1293,6 +1354,20 @@ namespace MSF_Scaleform
 			//GFxValue msf_loader_content; msf_loader.GetMember("content", &msf_loader_content);
 			//_DEBUG("UpdateWidgetData: %02X, InterfaceVersion: %02X, MSFwidget: %02X", msf_loader_content.HasMember("UpdateWidgetData"), msf_loader_content.HasMember("InterfaceVersion"), msf_loader_content.HasMember("MSFwidget"));
 			*/
+		}
+		else if (currentSWFPathString)
+		{
+			std::string path = currentSWFPathString;
+			std::string basename = path.substr(path.find_last_of("/") + 1, path.find_last_of("."));
+			auto menuData = MSFCustomMenu::customMenuData.find(path);
+			if (menuData != MSFCustomMenu::customMenuData.end())
+			{
+				GFxValue root; movieRoot->GetVariable(&root, "root");
+				//MSF_MainData::MSFMenuRoot = movieRoot;
+				GFxValue msf; movieRoot->CreateObject(&msf);
+				root.SetMember("msf", &msf);
+				RegisterMSFScaleformFuncs(&msf, movieRoot);
+			}
 		}
 
 		return true;
