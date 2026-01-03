@@ -113,6 +113,38 @@ void ModSwitchManager::HandlePAEvent()
 		MSF_Scaleform::UpdateWidgetData();
 }
 
+bool ModSwitchManager::SetOpenedMenu(ModSelectionMenu* menu, ModData* mods) //!/rewrite
+{
+	if (!menu || !menu->customMenuData)
+		return false;
+	if (!(*g_ui)->IsMenuOpen(BSFixedString(menu->customMenuData->menuName.c_str())))
+	{
+		MSFCustomMenu::OpenMenu(BSFixedString(menu->customMenuData->menuName.c_str()));
+		_DEBUG("MenuOpened");
+		menuData.menuLock.Lock();
+		menuData.selectMenu = menu;
+		menuData.mods = mods;
+		menuData.isOpening = true;
+		menuData.UINeedsToBeDrawn = false;
+		menuData.menuLock.Release();
+	}
+	return true;
+};
+
+bool ModSwitchManager::CloseOpenedMenu()
+{
+	_DEBUG("closing");
+	menuData.menuLock.Lock();
+	if (menuData.selectMenu && menuData.selectMenu->customMenuData)
+		MSFCustomMenu::CloseMenu(BSFixedString(menuData.selectMenu->customMenuData->menuName.c_str()));
+	menuData.selectMenu = nullptr;
+	menuData.mods = nullptr;
+	menuData.isOpening = false;
+	menuData.UINeedsToBeDrawn = false;
+	menuData.menuLock.Release();
+	return true;
+};
+
 bool ModSwitchManager::SetModSelection(ModData::ModCycle* cycle, ModData::Mod* modToAttach, ModData::Mod* modToRemove, UInt32 selectIdx)
 {
 	if (!cycle || (!modToAttach && !modToRemove) || selectIdx == -1)

@@ -255,17 +255,17 @@ EventResult	MenuOpenCloseSink::ReceiveEvent(MenuOpenCloseEvent * evn, void * dis
 		if (MSF_MainData::modSwitchManager.GetOpenedMenus() > 0)
 		{
 			//_DEBUG("CloseMSFMenu");
-			MSF_MainData::modSwitchManager.CloseOpenedMenu();
-			MSFMenu::CloseMenu(); //!/close current open (maybe don't have to)
+			MSF_MainData::modSwitchManager.CloseOpenedMenu(); //!/close current open (maybe don't have to)
+			//MSFMenu::CloseMenu(); //!/comment
 			MSFWidgetMenu::CloseMenu();
 
 		}
 		else
 		{
 			//_DEBUG("OpenMSFMenu from MenuOpenCloseHandler");
-			MSFWidgetMenu::OpenMenu(); //!/remove
+			MSFWidgetMenu::OpenMenu(); 
 			//MSFMenu::RegisterMenu();
-			MSFMenu::OpenMenu();
+			//MSFMenu::OpenMenu(); //!/comment
 		}
 	}
 
@@ -973,10 +973,10 @@ UInt8 PlayerAnimationEvent_Hook(void* arg1, BSAnimationGraphEvent* arg2, void** 
 	else if (!_strcmpi("BeginWeaponSheathe", name))
 	{
 		_DEBUG("sheathe");
-		ModSelectionMenu* selectMenu = MSF_MainData::modSwitchManager.GetOpenedMenu();
-		if (selectMenu)
+		ModSwitchManager::OpenedMenuData menuData = MSF_MainData::modSwitchManager.GetOpenedMenuData();
+		if (menuData.selectMenu)
 		{
-			if (((selectMenu->type & ModSelectionMenu::kType_AmmoMenu) && (MSF_MainData::MCMSettingFlags & MSF_MainData::bAmmoRequireWeaponToBeDrawn)) || MSF_MainData::modSwitchManager.GetUINeedsWeaponDrawn())
+			if (((menuData.selectMenu->type & ModSelectionMenu::kType_AmmoMenu) && (MSF_MainData::MCMSettingFlags & MSF_MainData::bAmmoRequireWeaponToBeDrawn)) || menuData.UINeedsToBeDrawn)
 				MSF_MainData::modSwitchManager.CloseOpenedMenu();
 		}
 	}

@@ -27,8 +27,8 @@ namespace MSF_Scaleform
 	bool UpdateWidgetQuickkeyMod(KeywordValue ap, TESForm* nameForm, std::string nullModName, bool isAmmo);
 	bool ClearWidgetQuickkeyMod();
 	UInt32 GetInterfaceVersion(); 
-	GFxMovieRoot* HandleToggleMenu(ModSelectionMenu* selectMenu);
-	bool ToggleSelectionMenu(ModSelectionMenu* selectMenu, ModData* mods);
+	bool HandleToggleMenu(ModSelectionMenu* selectMenu, ModData* mods);
+	bool DisplaySelectionMenu(ModSelectionMenu* selectMenu, ModData* mods, GFxMovieRoot* menuRoot);
 	bool ToggleGlobalMenu(ModSelectionMenu* selectMenu, std::vector<KeywordValue>* attachPoints);
 	bool UpdateAmmoMenuCount(TESAmmo* ammo, UInt32 newCount);
 	bool UpdateAmmoMenuEq(BGSMod::Attachment::Mod* ammoMod);

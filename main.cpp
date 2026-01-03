@@ -208,8 +208,8 @@ public:
 			//if (translator) {
 			//	SSWTranslator::LoadTranslations(translator);
 			//}
-			MSFMenu::RegisterMenu(); //!/registermenus
-			MSFMenu::OpenMenu(); //!/comment
+			MSF_Scaleform::RegisterMSFCustomMenus(); //MSFMenu::RegisterMenu(); //!/registermenus
+			//MSFMenu::OpenMenu(); //!/comment
 			delete MSF_MainData::ammoDisplay;
 			MSF_MainData::ammoDisplay = HUDMenuAmmoDisplay::Init();
 

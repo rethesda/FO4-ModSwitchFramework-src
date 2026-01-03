@@ -380,11 +380,15 @@ private:
 	volatile UInt16 switchState;
 	volatile UInt16 forcedReload;
 	volatile UInt16 changeAmmo;
-	volatile UInt16 UINeedsToBeDrawn;
 	SimpleLock queueLock;
 	std::vector<SwitchData*> switchDataQueue;
 
-	ModSelectionMenu* volatile openedMenu;
+	struct OpenedMenuDataHolder : OpenedMenuData
+	{
+		SimpleLock menuLock;
+	} menuData;
+
+	//ModSelectionMenu* volatile openedMenu;
 	volatile UInt16 numberOfOpenedMenus;
 	std::vector<AmmoData::AmmoMod*> displayedAmmoChoices;
 	std::vector<ModData::Mod*> displayedModChoices;
@@ -423,7 +427,7 @@ public:
 		InterlockedExchange16((volatile short*)&ignorePlayEquipAction, 0);
 		InterlockedExchange16((volatile short*)&ignoreDeleteExtraData, 0);
 		InterlockedExchange16((volatile short*)&modChangeEvent, 0);
-		InterlockedExchangePointer((void* volatile*)&openedMenu, nullptr);
+		//InterlockedExchangePointer((void* volatile*)&openedMenu, nullptr);
 		InterlockedExchange16((volatile short*)&numberOfOpenedMenus, 0);
 		InterlockedExchangePointer((void* volatile*)&equippedInstanceData, nullptr);
 		InterlockedExchange16((volatile short*)&isBCRreload, 0);
@@ -431,9 +435,9 @@ public:
 		InterlockedExchange16((volatile short*)&shouldBlendAnimation, 0);
 		InterlockedExchange16((volatile short*)&forcedReload, 0);
 		InterlockedExchange16((volatile short*)&dontPutYourGunIn, 0);
-		InterlockedExchange16((volatile short*)&changeAmmo, 0); 
-		InterlockedExchange16((volatile short*)&UINeedsToBeDrawn, 0);
+		InterlockedExchange16((volatile short*)&changeAmmo, 0);
 		ClearQuickSelection();
+		ClearSelectMenu();
 	};
 	enum
 	{
@@ -464,30 +468,27 @@ public:
 	void IncOpenedMenus() { InterlockedIncrement16((volatile short*)&numberOfOpenedMenus); };
 	void DecOpenedMenus() { InterlockedDecrement16((volatile short*)&numberOfOpenedMenus); };
 	int GetOpenedMenus() { return numberOfOpenedMenus; };
-	ModSelectionMenu* GetOpenedMenu() { return openedMenu; };
-	void SetOpenedMenu(ModSelectionMenu* menu) { InterlockedExchangePointer((void* volatile*)&openedMenu, menu); };
-	void SetUINeedsWeaponDrawn(bool needs) { InterlockedExchange16((volatile short*)&UINeedsToBeDrawn, needs); };
-	bool GetUINeedsWeaponDrawn() { return UINeedsToBeDrawn; };
-	bool CloseOpenedMenu() //!/rewrite
+	OpenedMenuData GetOpenedMenuData()
 	{ 
-		if (!openedMenu)
-			return true;
-		static BSFixedString menuName("MSFMenu");
-		IMenu* MSFmenu = (*g_ui)->GetMenu(menuName);
-		if (!MSFmenu)
-			return false;
-		if (!MSFmenu->movie)
-			return false;
-		GFxMovieRoot* menuRoot = MSFmenu->movie->movieRoot;
-		if (!menuRoot)
-			return false;
-		std::string closePath = "root." + openedMenu->scaleformName + "_loader.content.Close";
-		GFxValue result;
-		menuRoot->Invoke(closePath.c_str(), &result, nullptr, 0);
-		InterlockedExchangePointer((void* volatile*)&openedMenu, nullptr); 
-		InterlockedExchange16((volatile short*)&UINeedsToBeDrawn, 0);
-		return result.data.boolean;
+		menuData.menuLock.Lock(); 
+		OpenedMenuData openedMenuData = OpenedMenuData{ menuData.selectMenu, menuData.mods, menuData.isOpening, menuData.UINeedsToBeDrawn };
+		menuData.menuLock.Release();
+		return openedMenuData;
 	};
+	void SetMenuIsOpened(bool opening = false)
+	{
+		menuData.menuLock.Lock();
+		menuData.isOpening = opening;
+		menuData.menuLock.Release();
+	};
+	void SetMenuNeedsDrawnWeapon(bool needs = true)
+	{
+		menuData.menuLock.Lock();
+		menuData.UINeedsToBeDrawn = needs;
+		menuData.menuLock.Release();
+	};
+	bool SetOpenedMenu(ModSelectionMenu* menu, ModData* mods); //!/rewrite
+	bool CloseOpenedMenu(); //!/rewrite
 	bool QueueSwitch(SwitchData* data)
 	{
 		if (!data)
@@ -616,6 +617,15 @@ public:
 	};
 	void ClearAmmoDisplayChioces() { menuLock.Lock(); displayedAmmoChoices.clear(); displayedAmmoChoices.reserve(20); menuLock.Release(); }
 	void ClearModDisplayChioces() { menuLock.Lock(); displayedModChoices.clear(); displayedModChoices.reserve(20); menuLock.Release(); }
+	void ClearSelectMenu()
+	{
+		menuData.menuLock.Lock();
+		menuData.selectMenu = nullptr;
+		menuData.mods = nullptr;
+		menuData.isOpening = false;
+		menuData.UINeedsToBeDrawn = false;
+		menuData.menuLock.Release();
+	};
 	void HandlePAEvent();
 	
 	bool SetModSelection(ModData::ModCycle* cycle, ModData::Mod* modToAttach, ModData::Mod* modToRemove, UInt32 selectIdx);
@@ -632,7 +642,7 @@ public:
 		InterlockedExchange16((volatile short*)&ignorePlayEquipAction, 0);
 		InterlockedExchange16((volatile short*)&ignoreDeleteExtraData, 0);
 		InterlockedExchange16((volatile short*)&modChangeEvent, 0);
-		InterlockedExchangePointer((void* volatile*)&openedMenu, nullptr);
+		//InterlockedExchangePointer((void* volatile*)&openedMenu, nullptr);
 		InterlockedExchange16((volatile short*)&numberOfOpenedMenus, 0);
 		ClearDisplayChioces();
 		InterlockedExchangePointer((void* volatile*)&equippedInstanceData, nullptr);
@@ -643,8 +653,8 @@ public:
 		InterlockedExchange16((volatile short*)&forcedReload, 0);
 		InterlockedExchange16((volatile short*)&dontPutYourGunIn, 0);
 		InterlockedExchange16((volatile short*)&changeAmmo, 0);
-		InterlockedExchange16((volatile short*)&UINeedsToBeDrawn, 0);
 		ClearQuickSelection();
+		ClearSelectMenu();
 		quickKeyTimer.cancel();
 		lowerGunTimer.cancel();
 	};
