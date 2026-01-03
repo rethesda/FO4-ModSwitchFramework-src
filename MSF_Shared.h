@@ -615,6 +615,7 @@ namespace Utilities
 	bool HasAttachPoint(AttachParentArray* attachPoints, KeywordValue attachPointKW);
 	bool ObjectInstanceHasAttachPoint(BGSObjectInstanceExtra* modData, BGSKeyword* attachPointKW);
 	bool ObjectInstanceHasAttachPoint(BGSObjectInstanceExtra* modData, KeywordValue attachPointKW);
+	std::vector<KeywordValue> GetAllAttachPoints(BGSObjectInstanceExtra* modData, AttachParentArray* attachPoints);
 	BGSMod::Attachment::Mod* GetModAtAttachPoint(BGSObjectInstanceExtra* modData, KeywordValue keywordValue);
 	bool GetParentInstantiationValues(BGSObjectInstanceExtra* modData, KeywordValue parentValue, std::vector<KeywordValue>* instantiationValues);
 	bool AddAttachPoint(AttachParentArray* attachPoints, BGSKeyword* attachPointKW);

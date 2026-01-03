@@ -364,6 +364,44 @@ public:
 	bool clearQuickkey;
 };
 
+class MSFMenuUpdateTask : public ITaskDelegate
+{
+public:
+	MSFMenuUpdateTask(TESAmmo* changedAmmo, TESObjectMISC* changedmisc)
+	{
+		ammo = changedAmmo;
+		misc = changedmisc;
+	};
+	virtual void Run() final
+	{
+		if (ammo)
+			MSF_Scaleform::UpdateAmmoMenuCount(ammo, Utilities::GetInventoryItemCount((*g_player)->inventoryList, ammo));
+		else
+			MSF_Scaleform::UpdateModMenuReqs(misc, Utilities::GetInventoryItemCount((*g_player)->inventoryList, misc));
+	}
+	TESAmmo* ammo;
+	TESObjectMISC* misc;
+
+	static void StartUpdate(TESBoundObject* changeditem)
+	{
+		TESAmmo* ammo = DYNAMIC_CAST(changeditem, TESBoundObject, TESAmmo);
+		if (ammo)
+		{
+			MSF_Scaleform::UpdateAmmoMenuCount(ammo, Utilities::GetInventoryItemCount((*g_player)->inventoryList, ammo));
+			//MSFMenuUpdateTask* updTask = new MSFMenuUpdateTask(ammo, nullptr);
+			//g_threading->AddUITask(updTask);
+			return;
+		}
+		TESObjectMISC* misc = DYNAMIC_CAST(changeditem, TESBoundObject, TESObjectMISC);
+		if (misc)
+		{
+			MSF_Scaleform::UpdateModMenuReqs(misc, Utilities::GetInventoryItemCount((*g_player)->inventoryList, misc));
+			//MSFMenuUpdateTask* updTask = new MSFMenuUpdateTask(nullptr, misc);
+			//g_threading->AddUITask(updTask);
+		}
+	}
+};
+
 class EndSwitchTask : public ITaskDelegate
 {
 public:

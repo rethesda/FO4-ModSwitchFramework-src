@@ -224,6 +224,8 @@ bool ExtraWeaponState::HandleWeaponStateEvents(UInt8 eventType, Actor* actor, UI
 	ExtraDataList* equippedWeapExtraData = nullptr;
 	actor->GetEquippedExtraData(slot, &equippedWeapExtraData);
 	EquipWeaponData* equippedData = Utilities::GetEquippedWeaponData(actor);
+	if (equippedData && equippedData->ammo)
+		MSFMenuUpdateTask::StartUpdate(equippedData->ammo);
 	ExtraWeaponState* weaponState = ExtraWeaponState::Init(equippedWeapExtraData, equippedData);
 	if (!weaponState)
 		return false;

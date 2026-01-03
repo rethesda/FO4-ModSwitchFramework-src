@@ -17,6 +17,7 @@ class ItemMenuDataManager;
 namespace MSF_Scaleform
 {
 	void ReceiveKeyEvents();
+	void RegisterMSFCustomMenus();
 	bool RegisterScaleformCallback(GFxMovieView* view, GFxValue* f4se_root);
 	bool RegisterScaleformTest(GFxMovieView * view, GFxValue * f4se_root);
 	void RegisterMSFScaleformFuncs(GFxValue* codeObj, GFxMovieRoot* movieRoot);
@@ -29,8 +30,9 @@ namespace MSF_Scaleform
 	GFxMovieRoot* HandleToggleMenu(ModSelectionMenu* selectMenu);
 	bool ToggleSelectionMenu(ModSelectionMenu* selectMenu, ModData* mods);
 	bool ToggleGlobalMenu(ModSelectionMenu* selectMenu, std::vector<KeywordValue>* attachPoints);
-	bool ToggleAmmoMenu(ModSelectionMenu* selectMenu);
-	bool ToggleModMenu(ModSelectionMenu* selectMenu, ModData* mods);
+	bool UpdateAmmoMenuCount(TESAmmo* ammo, UInt32 newCount);
+	bool UpdateAmmoMenuEq(BGSMod::Attachment::Mod* ammoMod);
+	bool UpdateModMenuReqs(TESObjectMISC* misc, UInt32 newCount);
 	void RegisterString(GFxValue* dst, GFxMovieRoot* root, const char* name, const char* str);
 	void RegisterObject(GFxValue* dst, GFxMovieRoot* root, const char* name, void* obj);
 	void RegisterBool(GFxValue* dst, GFxMovieRoot* root, const char* name, bool value);
@@ -372,18 +374,20 @@ public:
 class MSFCustomMenuData
 {
 public:
-	BSFixedString	menuName;
-	BSFixedString	menuPath;
-	BSFixedString	rootPath;
+	std::string	menuName;
+	std::string	menuPath;
+	std::string	rootPath;
 	UInt32			menuFlags;
 	UInt32			movieFlags;
 	UInt32			extFlags;
 	UInt32			depth;
+	bool			isValid;
 
 	enum ExtendedFlags
 	{
-		kExtFlag_InheritColors = 1,
-		kExtFlag_CheckForGamepad = 2
+		kExtFlag_InheritColors = 0x01,
+		kExtFlag_CheckForGamepad = 0x02,
+		kExtFlag_DontAllowMenuChange = 0x04
 	};
 };
 
@@ -392,7 +396,7 @@ class MSFCustomMenu : CustomMenu
 public:
 	static bool RegisterCustomMenu(MSFCustomMenuData* menuData)
 	{
-		if (menuData && !(*g_ui)->IsMenuRegistered(menuData->menuName))
+		if (menuData && !(*g_ui)->IsMenuRegistered(BSFixedString(menuData->menuName.c_str())))
 		{
 			menuLock.Lock();
 			customMenuData[menuData->menuName.c_str()] = menuData;

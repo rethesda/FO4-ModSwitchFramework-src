@@ -87,10 +87,8 @@ EventResult	ActorEquipManagerEventSink::ReceiveEvent(ActorEquipManagerEvent::Eve
 	if (!eventWeapon)
 		return kEvent_Continue;
 	if (!MSF_MainData::modSwitchManager.GetModChangeEvent())
-	{
 		MSF_MainData::modSwitchManager.ClearQueue();
-		MSF_MainData::modSwitchManager.CloseOpenedMenu();
-	}
+	MSF_MainData::modSwitchManager.CloseOpenedMenu();
 	MSF_MainData::modSwitchManager.ClearQuickSelection(true, true);
 	TESObjectWEAP::InstanceData* eventInstanceData = (TESObjectWEAP::InstanceData*)Runtime_DynamicCast(evn->data->instancedata, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData);
 	//TESObjectWEAP::InstanceData* equippedInstanceData = Utilities::GetEquippedInstanceData(*g_player);
@@ -199,10 +197,12 @@ EventResult	PlayerInventoryListEventSink::ReceiveEvent(BGSInventoryListEventData
 		return kEvent_Continue;
 	switch (evn->changeType)
 	{
-	case BGSInventoryListEventData::kAddStack: {} break; //_DEBUG("kAddStack"); }; //
-	case BGSInventoryListEventData::kChangedStack: {} break; //_DEBUG("kChangedStack"); };
-	case BGSInventoryListEventData::kAddNewItem: {} break; //_DEBUG("kAddNewItem"); };
+	case BGSInventoryListEventData::kAddStack: { _DEBUG("kAddStack %i", evn->count);  MSFMenuUpdateTask::StartUpdate(evn->objAffected); }; break; //} break; //
+	case BGSInventoryListEventData::kChangedStack: {_DEBUG("kChangedStack %i", evn->count); MSFMenuUpdateTask::StartUpdate(evn->objAffected); }; break; //} break; //
+	case BGSInventoryListEventData::kAddNewItem: { _DEBUG("kAddNewItem %i", evn->count); MSFMenuUpdateTask::StartUpdate(evn->objAffected); }; break;
 	case BGSInventoryListEventData::kRemoveItem: {
+		_DEBUG("kRemoveItem %i", evn->count);
+		MSFMenuUpdateTask::StartUpdate(evn->objAffected);
 		//_DEBUG("kRemoveItem"); 
 		//_DEBUG("obj: %p", evn->objAffected);
 		//_DEBUG("own: %p", evn->owner);
@@ -969,6 +969,16 @@ UInt8 PlayerAnimationEvent_Hook(void* arg1, BSAnimationGraphEvent* arg2, void** 
 	else if (!_strcmpi("switchMag", name))
 	{
 		//ExtraWeaponState::HandleWeaponStateEvents(ExtraWeaponState::kEventTypeSwitchMag);
+	}
+	else if (!_strcmpi("BeginWeaponSheathe", name))
+	{
+		_DEBUG("sheathe");
+		ModSelectionMenu* selectMenu = MSF_MainData::modSwitchManager.GetOpenedMenu();
+		if (selectMenu)
+		{
+			if (((selectMenu->type & ModSelectionMenu::kType_AmmoMenu) && (MSF_MainData::MCMSettingFlags & MSF_MainData::bAmmoRequireWeaponToBeDrawn)) || MSF_MainData::modSwitchManager.GetUINeedsWeaponDrawn())
+				MSF_MainData::modSwitchManager.CloseOpenedMenu();
+		}
 	}
 	else if (!_strcmpi("toggleMenu", name))
 	{

@@ -8,6 +8,7 @@ class HUDMenuAmmoDisplay;
 class BCRinterface;
 class BurstModeManager;
 class BurstModeData;
+class MSFCustomMenu;
 class MSFCustomMenuData;
 
 class AmmoData
@@ -359,6 +360,14 @@ public:
 class ModSwitchManager
 {
 public:
+	struct OpenedMenuData
+	{
+		ModSelectionMenu* selectMenu;
+		ModData* mods;
+		bool isOpening;
+		bool UINeedsToBeDrawn;
+	};
+
 	volatile UInt16 dontPutYourGunIn;
 private:
 	volatile UInt16 ignoreAnimGraphUpdate;
@@ -371,6 +380,7 @@ private:
 	volatile UInt16 switchState;
 	volatile UInt16 forcedReload;
 	volatile UInt16 changeAmmo;
+	volatile UInt16 UINeedsToBeDrawn;
 	SimpleLock queueLock;
 	std::vector<SwitchData*> switchDataQueue;
 
@@ -421,7 +431,8 @@ public:
 		InterlockedExchange16((volatile short*)&shouldBlendAnimation, 0);
 		InterlockedExchange16((volatile short*)&forcedReload, 0);
 		InterlockedExchange16((volatile short*)&dontPutYourGunIn, 0);
-		InterlockedExchange16((volatile short*)&changeAmmo, 0);
+		InterlockedExchange16((volatile short*)&changeAmmo, 0); 
+		InterlockedExchange16((volatile short*)&UINeedsToBeDrawn, 0);
 		ClearQuickSelection();
 	};
 	enum
@@ -455,6 +466,8 @@ public:
 	int GetOpenedMenus() { return numberOfOpenedMenus; };
 	ModSelectionMenu* GetOpenedMenu() { return openedMenu; };
 	void SetOpenedMenu(ModSelectionMenu* menu) { InterlockedExchangePointer((void* volatile*)&openedMenu, menu); };
+	void SetUINeedsWeaponDrawn(bool needs) { InterlockedExchange16((volatile short*)&UINeedsToBeDrawn, needs); };
+	bool GetUINeedsWeaponDrawn() { return UINeedsToBeDrawn; };
 	bool CloseOpenedMenu() //!/rewrite
 	{ 
 		if (!openedMenu)
@@ -472,6 +485,7 @@ public:
 		GFxValue result;
 		menuRoot->Invoke(closePath.c_str(), &result, nullptr, 0);
 		InterlockedExchangePointer((void* volatile*)&openedMenu, nullptr); 
+		InterlockedExchange16((volatile short*)&UINeedsToBeDrawn, 0);
 		return result.data.boolean;
 	};
 	bool QueueSwitch(SwitchData* data)
@@ -527,6 +541,52 @@ public:
 
 	void AddDisplayedAmmoNoLock(AmmoData::AmmoMod* ammo) { displayedAmmoChoices.push_back(ammo); };
 	void AddDisplayedModNoLock(ModData::Mod* mod) { displayedModChoices.push_back(mod); };
+	std::vector<UInt32> GetIdxsOfAmmo(TESAmmo* ammo) 
+	{ 
+		std::vector<UInt32> idxs;
+		if (!ammo)
+			return idxs;
+		menuLock.Lock();
+		for (UInt32 ammoIdx = 0; ammoIdx < displayedAmmoChoices.size(); ammoIdx++)
+		{
+			auto ammoCh = displayedAmmoChoices[ammoIdx];
+			if (ammoCh && ammoCh->ammo == ammo)
+				idxs.push_back(ammoIdx);
+		}
+		menuLock.Release();
+		return idxs;
+	};
+	std::vector<UInt32> GetIdxsOfMISCMod(TESObjectMISC* misc)
+	{
+		std::vector<UInt32> idxs;
+		if (!misc)
+			return idxs;
+		menuLock.Lock();
+		for (UInt32 modIdx = 0; modIdx < displayedModChoices.size(); modIdx++)
+		{
+			auto modCh = displayedAmmoChoices[modIdx];
+			if (modCh && (modCh->flags & ModData::Mod::bRequireLooseMod) && Utilities::GetLooseMod(modCh->mod) == misc)
+				idxs.push_back(modIdx);
+		}
+		menuLock.Release();
+		return idxs;
+	};
+	UInt32 GetIdxOfAmmoMod(BGSMod::Attachment::Mod* ammoMod)
+	{
+		menuLock.Lock();
+		for (UInt32 ammoIdx = 0; ammoIdx < displayedAmmoChoices.size(); ammoIdx++)
+		{
+			auto ammoCh = displayedAmmoChoices[ammoIdx];
+			if (ammoCh && ammoCh->mod == ammoMod)
+			{
+				menuLock.Release();
+				return ammoIdx;
+			}
+		}
+		menuLock.Release();
+		return -1;
+	};
+	ModData::Mod* GetDisplayedModByIndexNoLock(ModData::Mod* mod) { displayedModChoices.push_back(mod); };
 	AmmoData::AmmoMod* GetDisplayedAmmoByIndex(UInt32 idx) 
 	{ 
 		AmmoData::AmmoMod* ammo = nullptr;
@@ -583,6 +643,7 @@ public:
 		InterlockedExchange16((volatile short*)&forcedReload, 0);
 		InterlockedExchange16((volatile short*)&dontPutYourGunIn, 0);
 		InterlockedExchange16((volatile short*)&changeAmmo, 0);
+		InterlockedExchange16((volatile short*)&UINeedsToBeDrawn, 0);
 		ClearQuickSelection();
 		quickKeyTimer.cancel();
 		lowerGunTimer.cancel();
@@ -761,6 +822,7 @@ public:
 		bDontAutolowerWeaponWithFlashlightOn = 0x80000000000,
 		bSwitchToNewAmmoTypeWhenDepleted = 0x100000000000,
 		bStartDepletedSwitchFromBaseAmmo = 0x200000000000,
+		bAllowChangingMSFMenus = 0x400000000000,
 		mMakeExtraRankMask = bEnableExtraWeaponState //| bEnableTacticalReloadAll | bEnableTacticalReloadAnim | bEnableBCRSupport
 	};
 	static UInt64 MCMSettingFlags;

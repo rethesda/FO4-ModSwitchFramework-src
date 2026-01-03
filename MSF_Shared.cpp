@@ -890,6 +890,31 @@ namespace Utilities
 		return false;
 	}
 
+	std::vector<KeywordValue> GetAllAttachPoints(BGSObjectInstanceExtra* modData, AttachParentArray* attachPoints)
+	{
+		std::vector<KeywordValue> APs;
+		if (attachPoints)
+		{
+			for (UInt32 idx = 0; idx < attachPoints->kewordValueArray.count; idx++)
+				APs.push_back(attachPoints->kewordValueArray[idx]);
+		}
+		if (!modData)
+			return APs;
+		auto data = modData->data;
+		if (!data || !data->forms)
+			return APs;
+		for (UInt32 i = 0; i < data->blockSize / sizeof(BGSObjectInstanceExtra::Data::Form); i++)
+		{
+			BGSMod::Attachment::Mod* objectMod = (BGSMod::Attachment::Mod*)Runtime_DynamicCast(LookupFormByID(data->forms[i].formId), RTTI_TESForm, RTTI_BGSMod__Attachment__Mod);
+			if (!objectMod)
+				continue;
+			AttachParentArray* attachPointsMod = reinterpret_cast<AttachParentArray*>(&objectMod->unk98);
+			for (UInt32 idx = 0; idx < attachPointsMod->kewordValueArray.count; idx++)
+				APs.push_back(attachPointsMod->kewordValueArray[idx]);
+		}
+		return APs;
+	}
+
 	BGSMod::Attachment::Mod* GetModAtAttachPoint(BGSObjectInstanceExtra* modData, KeywordValue value)
 	{
 		if (!modData)
