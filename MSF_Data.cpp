@@ -812,7 +812,7 @@ namespace MSF_Data
 			| MSF_MainData::bReplaceAmmoWithSpawned | MSF_MainData::bSpawnRandomMods | MSF_MainData::bInjectLeveledLists | MSF_MainData::bWidgetAlwaysVisible | MSF_MainData::bShowAmmoIcon | MSF_MainData::bShowMuzzleIcon | MSF_MainData::bShowAmmoName \
 			| MSF_MainData::bShowMuzzleName | MSF_MainData::bShowFiringMode | MSF_MainData::bShowScopeData | MSF_MainData::bShowUnavailableMods | MSF_MainData::bEnableMetadataSaving \
 			| MSF_MainData::bEnableExtraWeaponState | MSF_MainData::bEnableTacticalReloadChamber | MSF_MainData::bEnableTacticalReloadAnim | MSF_MainData::bEnableBCRSupport | MSF_MainData::bDisplayChamberedAmmoOnHUD | MSF_MainData::bDisplayMagInPipboy \
-			| MSF_MainData::bDisplayChamberInPipboy | MSF_MainData::bShowQuickkeySelection | MSF_MainData::bPatchVanillaAVcalculation | MSF_MainData::bDontAutolowerWeaponWithFlashlightOn);
+			| MSF_MainData::bDisplayChamberInPipboy | MSF_MainData::bShowQuickkeySelection | MSF_MainData::bPatchVanillaAVcalculation | MSF_MainData::bDontAutolowerWeaponWithFlashlightOn | MSF_MainData::bStartDepletedSwitchFromBaseAmmo);
 
 		if (ReadUserSettings())
 			_MESSAGE("User settings loaded for MSF");
@@ -1048,7 +1048,7 @@ namespace MSF_Data
 									menuDataObj = menuData["menuFlags"];
 									if (menuDataObj.isInt())
 										menuFlags = menuDataObj.asInt() & ~(IMenu::kFlag_AlwaysOpen | IMenu::kFlag_OnStack | IMenu::kFlag_AdvancesUnderPauseMenu);
-									menuDataObj = menuData["movieFlags"];
+									menuDataObj = menuData["movieType"];
 									if (menuDataObj.isInt())
 										movieFlags = menuDataObj.asInt();
 									menuDataObj = menuData["extFlags"];
@@ -1109,8 +1109,8 @@ namespace MSF_Data
 								const Json::Value& menuData = keybind["menuData"];
 								std::string root = "root1";
 								UInt32 menuFlags = IMenu::kFlag_AllowSaving;
-								UInt32 movieFlags = 0;
-								UInt32 extFlags = 0;
+								UInt32 movieFlags = MSFCustomMenuData::MovieType::kNoBorder;
+								UInt32 extFlags = MSFCustomMenuData::ExtendedFlags::kExtFlag_InheritColors | MSFCustomMenuData::ExtendedFlags::kExtFlag_CheckForGamepad;
 								UInt32 depth = 6;
 								if (!menuData.isNull())
 								{
@@ -1121,7 +1121,7 @@ namespace MSF_Data
 									menuDataObj = menuData["menuFlags"];
 									if (menuDataObj.isInt())
 										menuFlags = menuDataObj.asInt() & ~(IMenu::kFlag_AlwaysOpen | IMenu::kFlag_OnStack | IMenu::kFlag_AdvancesUnderPauseMenu);
-									menuDataObj = menuData["movieFlags"];
+									menuDataObj = menuData["movieType"];
 									if (menuDataObj.isInt())
 										movieFlags = menuDataObj.asInt();
 									menuDataObj = menuData["extFlags"];

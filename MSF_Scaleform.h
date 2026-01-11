@@ -389,6 +389,14 @@ public:
 		kExtFlag_CheckForGamepad = 0x02,
 		kExtFlag_DontAllowMenuChange = 0x04
 	};
+
+	enum MovieType
+	{
+		kNoScale,
+		kShowAll,
+		kExactFit,
+		kNoBorder
+	};
 };
 
 class MSFCustomMenu : CustomMenu

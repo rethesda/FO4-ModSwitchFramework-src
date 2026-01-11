@@ -1,7 +1,15 @@
 ---
+v1.2.3
+features:
+- MSF now implements mod selection menus as proper individual custom menus, instead of injecting them to MSFMenu.swf; this requires new implementations in Action Script for the interface files (see MSF manual)
+fixes:
+- AttachRemoveModToInventoryStack now allows attaching mods to items without ExtraData
+- AttachRemoveModToEquippedItem now allows attaching mods to equipped items that have missing equip flags
+---
 v1.2.2
 features:
 - animation graph updates now occur for every mod switch, from now on use the bUpdateAnimGraph flag only if the equip action should be played
+- ammo count and mod requirements are now updated in the selection menus (new UI implementation needed, see MSF manual)
 - when an ammo type runs out, now it is possible to automatically switch to the next/first available ammo type (can be set in the MCM)
 - autolower now can be set to be ignored if the pipboy light is on
 fixes:
@@ -9,6 +17,7 @@ fixes:
 - fixed potential CTD with the emptyMag animation event
 - fixed erroneous BCR/TR logic when switching ammo from UI menus
 - fixed a bug that caused OMODs to be removed before the new OMOD was attached during a mod switch
+- mixed ammo and mod selection menu now receives mods from all possible attach points (new UI implementation might be needed, see MSF manual)
 ---
 v1.2.1
 features:

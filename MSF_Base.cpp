@@ -721,11 +721,13 @@ namespace MSF_Base
 			return false;
 
 		ExtraDataList* dataList = stack->extraData;
-		if (!dataList)
-			return false;
-		ExtraInstanceData* extraInstanceData = DYNAMIC_CAST(dataList->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
-		if (!extraInstanceData || !extraInstanceData->baseForm || !extraInstanceData->instanceData)
-			return false;
+		//if (!dataList)
+		//	return false;
+		ExtraInstanceData* extraInstanceData = nullptr;
+		if (dataList)
+			extraInstanceData = DYNAMIC_CAST(dataList->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
+		//if (!extraInstanceData || !extraInstanceData->baseForm || !extraInstanceData->instanceData)
+		//	return false;
 
 		Actor* ownerActor = nullptr;
 		bool isEquipped = false;
@@ -734,7 +736,8 @@ namespace MSF_Base
 		{
 			isEquipped = true;
 			ownerActor = DYNAMIC_CAST(owner, TESObjectREFR, Actor);
-			GetActorValues((TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
+			if (extraInstanceData && extraInstanceData->instanceData)
+				GetActorValues((TESObjectWEAP::InstanceData*)Runtime_DynamicCast(extraInstanceData->instanceData, RTTI_TBO_InstanceData, RTTI_TESObjectWEAP__InstanceData), &avifValues);
 		}
 
 		bool ret = false;
@@ -743,7 +746,8 @@ namespace MSF_Base
 		ModifyModDataFunctor modFunctor(mod, 0, bAttach, &ret);
 		modFunctor.shouldSplitStacks = shouldSplitStacks;
 		modFunctor.transferEquippedToSplitStack = transferEquippedToSplitStack;
-		PrintStackData((Actor*)owner, (TESObjectWEAP*)extraInstanceData->baseForm);
+		if (extraInstanceData)
+			PrintStackData((Actor*)owner, (TESObjectWEAP*)extraInstanceData->baseForm);
 		UInt32 unk = 0x00200000;
 		MSF_MainData::modSwitchManager.GetSetChangeAmmo((1 << (UInt8)transferEquippedToSplitStack) | (UInt16((MSF_MainData::MCMSettingFlags & MSF_MainData::bRandomizeLoadedAmmoOnSplitStack) / MSF_MainData::bRandomizeLoadedAmmoOnSplitStack) << 2));
 		AttachRemoveModStack(item, &IDfunctor, &modFunctor, 0, &unk);
@@ -780,9 +784,11 @@ namespace MSF_Base
 		}
 
 		ExtraDataList* newList = stack->extraData;
+		if (!newList)
+			return ret;
 		extraInstanceData = DYNAMIC_CAST(newList->GetByType(kExtraData_InstanceData), BSExtraData, ExtraInstanceData);
 		if (!extraInstanceData || !extraInstanceData->baseForm || !extraInstanceData->instanceData)
-			return false;
+			return ret;
 
 		TESObjectWEAP* baseWeap = DYNAMIC_CAST(extraInstanceData->baseForm, TESForm, TESObjectWEAP);
 		if (baseWeap)
@@ -895,6 +901,7 @@ namespace MSF_Base
 			return false;
 		if (!actor->inventoryList)
 			return false;
+		_DEBUG("raider checks ok");
 		for (UInt32 i = 0; i < actor->inventoryList->items.count; i++)
 		{
 			BGSInventoryItem inventoryItem;
@@ -902,11 +909,19 @@ namespace MSF_Base
 			if (inventoryItem.form != item || !inventoryItem.stack)
 				continue;
 			UInt32 stackID = 0;
+			bool hasMultiple = inventoryItem.stack->next != nullptr;
 			for (BGSInventoryItem::Stack* currStack = inventoryItem.stack; currStack; currStack = currStack->next)
 			{
-				if (currStack->flags & BGSInventoryItem::Stack::kFlagEquipped)
+				if (!hasMultiple || (currStack->flags & BGSInventoryItem::Stack::kFlagEquipped))
 					return AttachRemoveModToInventoryStack(actor, &inventoryItem, stackID, mod, bAttach, shouldSplitStacks, transferEquippedToSplitStack, updateAnimGraph);
+				else if (inventoryItem.stack->extraData)
+				{
+					ExtraInstanceData* instance = (ExtraInstanceData*)inventoryItem.stack->extraData->GetByType(ExtraDataType::kExtraData_InstanceData);
+					if (instance && actor->biped.get()->object[slotIndex].parent.instanceData == instance->instanceData)
+						return AttachRemoveModToInventoryStack(actor, &inventoryItem, stackID, mod, bAttach, shouldSplitStacks, transferEquippedToSplitStack, updateAnimGraph);
+				}
 				stackID++;
+				_DEBUG("raider stack not equipped");
 			}
 		}
 		return false;

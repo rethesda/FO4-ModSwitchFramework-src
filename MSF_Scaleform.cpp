@@ -109,7 +109,8 @@ void HandleInputEvent(ButtonEvent * inputEvent)
 				//MSF_Test::ModTemplateTest();
 
 				//Utilities::PlaySoundInternal(MSF_MainData::failSound, *g_player);
-				MSF_Test::AttachStackTest(2, true);
+				//MSF_Test::AttachStackTest(2, true);
+				MSF_Test::RaiderTest();
 				_DEBUG("test1");
 			}
 		}
@@ -316,7 +317,7 @@ void LoadMSFCustomMenu_Hook(IMenu* menu)
 		{
 			menuData->second->isValid = true;
 			menu->stage.SetMember("menuFlags", &GFxValue(menu->flags));
-			menu->stage.SetMember("movieFlags", &GFxValue(movieFlags));
+			menu->stage.SetMember("movieType", &GFxValue(movieFlags));
 			menu->stage.SetMember("extendedFlags", &GFxValue(extFlags));
 
 			GameMenuBase* gameMenu = static_cast<GameMenuBase*>(menu);
@@ -1128,10 +1129,10 @@ namespace MSF_Scaleform
 		ModSwitchManager::OpenedMenuData menuData = MSF_MainData::modSwitchManager.GetOpenedMenuData();
 		if (!menuData.selectMenu || menuData.isOpening || !(menuData.selectMenu->type & 2))
 			return false;
-		IMenu* ammoMenu = (*g_ui)->GetMenu(BSFixedString(menuData.selectMenu->scaleformName.c_str()));
-		if (!ammoMenu || !ammoMenu->movie)
+		IMenu* modMenu = (*g_ui)->GetMenu(BSFixedString(menuData.selectMenu->scaleformName.c_str()));
+		if (!modMenu || !modMenu->movie)
 			return false;
-		GFxMovieRoot* menuRoot = ammoMenu->movie->movieRoot;
+		GFxMovieRoot* menuRoot = modMenu->movie->movieRoot;
 		if (!menuRoot)
 			return false;
 		auto idxs = MSF_MainData::modSwitchManager.GetIdxsOfMISCMod(misc);
