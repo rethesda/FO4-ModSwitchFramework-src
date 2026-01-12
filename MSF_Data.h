@@ -695,6 +695,7 @@ public:
 	static bool IsInitialized;
 	static bool GameIsLoading;
 	static bool PutYourGunInCompatibility;
+	static bool BAKACompatibility;
 
 	static RandomNumber rng;
 	static int iCheckDelayMS;

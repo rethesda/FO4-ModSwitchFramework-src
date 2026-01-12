@@ -202,8 +202,11 @@ public:
 		{
 			_MESSAGE("WARNING: duplicate WeaponStateID found");
 			ranksToClear.insert(ranksToClear.begin(), std::pair<WeaponStateID, ExtraRank*>(id, holder));
-			ranksToClear.insert(ranksToClear.begin(), std::pair<WeaponStateID, ExtraRank*>(id, itMap->second));
-			mapstorage.erase(itMap);
+			if (itMap != mapstorage.end())
+			{
+				ranksToClear.insert(ranksToClear.begin(), std::pair<WeaponStateID, ExtraRank*>(id, itMap->second));
+				mapstorage.erase(itMap);
+			}
 			return false;
 		}
 		//ExtraRank* occupied = mapstorage[id];

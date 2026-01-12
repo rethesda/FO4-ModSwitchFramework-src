@@ -57,6 +57,7 @@ BGSAction* MSF_MainData::ActionRightRelease;
 bool MSF_MainData::GameIsLoading = true;
 bool MSF_MainData::IsInitialized = false;
 bool MSF_MainData::PutYourGunInCompatibility = false;
+bool MSF_MainData::BAKACompatibility = false;
 int MSF_MainData::iCheckDelayMS = 10;
 int MSF_MainData::quickKeyTimeoutMS = 300;
 UInt64 MSF_MainData::MCMSettingFlags = 0;

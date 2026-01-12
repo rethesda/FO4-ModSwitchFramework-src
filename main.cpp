@@ -148,10 +148,18 @@ bool RegisterAfterLoadEvents()
 	auto eventDispatcher3 = GET_EVENT_DISPATCHER(PipboyLightEvent);
 	if (eventDispatcher3)
 		eventDispatcher3->eventSinks.Push(&pipboyLightEvent);
-	else
+	else 
 	{
-		_MESSAGE("MSF was unable to register for PipboyLightsEvent");
-		return false;
+		if (MSF_MainData::BAKACompatibility && (*g_globalEvents)->eventSources.count >= 0x1B)
+		{
+			eventDispatcher3 = (BSTEventDispatcher<PipboyLightEvent>*) & (*g_globalEvents)->eventSources[0x1A]->eventDispatcher;
+			eventDispatcher3->eventSinks.Push(&pipboyLightEvent);
+		}
+		else
+		{
+			_MESSAGE("MSF was unable to register for PipboyLightsEvent");
+			return false;
+		}
 	}
 
 	//REGISTER_EVENT(BGSOnPlayerModArmorWeaponEvent, modArmorWeaponEventSink);
@@ -683,6 +691,12 @@ bool InitPlugin(const F4SEInterface* f4se)
 	{
 		MSF_MainData::PutYourGunInCompatibility = true;
 		_MESSAGE("PutUrGunIn.dll detected - Compatibility patch enabled");
+	}
+
+	if (GetFileAttributes("Data\\F4SE\\Plugins\\BakaFramework.dll") != INVALID_FILE_ATTRIBUTES)
+	{
+		MSF_MainData::BAKACompatibility = true;
+		_MESSAGE("BakaFramework.dll detected - Compatibility patch enabled");
 	}
 
 	srand(time(NULL));
