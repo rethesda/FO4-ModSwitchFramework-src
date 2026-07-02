@@ -128,7 +128,7 @@ namespace MSF_Base
 		_DEBUG("queue/stateOK");
 
 		TESObjectWEAP::InstanceData* instance = Utilities::GetEquippedInstanceData(playerActor);
-		bool isBCR = MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(instance);
+		bool isBCR = MSF_MainData::BCRinterfaceHolder.EquippedWeaponHasBCRFlag(playerActor); //MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(instance);
 		bool isTR = MSF_Data::InstanceHasTRSupport(instance) || MSF_WeaponState::EquippedWeaponHasTRSupport(playerActor);
 		if (isBCR)
 		{
@@ -1216,52 +1216,142 @@ namespace MSF_Base
 
 	void SpawnRandomMods(TESObjectCELL* cell)
 	{
-		if (MSF_MainData::MCMSettingFlags & (MSF_MainData::bSpawnRandomAmmo | MSF_MainData::bSpawnRandomMods | MSF_MainData::bReplaceAmmoWithSpawned))
+		_DEBUG("cell: %s", cell->GetEditorID());
+		for (UInt32 i = 0; i < cell->objectList.count; i++)
 		{
-			//_DEBUG("mod spawn");
-			for (UInt32 i = 0; i < cell->objectList.count; i++)
+			Actor* randomActor = DYNAMIC_CAST(cell->objectList[i], TESObjectREFR, Actor);
+			if (!randomActor || !randomActor->biped.get() || randomActor == (*g_player) || !randomActor->inventoryList)
+				continue;
+			//check if unique
+			_DEBUG("actor ok: %s", randomActor->baseForm ? randomActor->baseForm->GetEditorID() : "");
+			std::vector<TESAmmo*> ammoNeeded;
+			for (UInt32 i2 = 0; i2 < randomActor->inventoryList->items.count; i2++)
 			{
-				Actor* randomActor = DYNAMIC_CAST(cell->objectList[i], TESObjectREFR, Actor);
-				if (!randomActor || !randomActor->biped.get() || randomActor == (*g_player))
+				BGSInventoryItem inventoryItem;
+				randomActor->inventoryList->items.GetNthItem(i2, inventoryItem);
+				if (!inventoryItem.form || !inventoryItem.stack || inventoryItem.form->formType != FormType::kFormType_WEAP)
 					continue;
-				//check if unique
-				TESObjectWEAP* firearm = Utilities::GetEquippedWeapon(randomActor);
-				if (!firearm)
-					continue;
-				if (randomActor->middleProcess && randomActor->middleProcess->unk08 && randomActor->middleProcess->unk08->equipData.entries && randomActor->middleProcess->unk08->equipData[0].equippedData)
+
+				TESObjectWEAP* firearm = (TESObjectWEAP*)inventoryItem.form;
+				TESAmmo* eqAmmo = firearm->weapData.ammo;
+				TESAmmo* ammo = eqAmmo;
+				TESAmmo* baseAmmo = eqAmmo;
+				if (inventoryItem.stack->extraData)
 				{
-					_DEBUG("actor ok");
-					TESAmmo* baseAmmo = randomActor->middleProcess->unk08->equipData[0].equippedData->ammo;
-					TESAmmo* ammo = baseAmmo;
-					std::vector<BGSMod::Attachment::Mod*> mods;
-					BGSMod::Attachment::Mod* ammoMod = nullptr;
-					UInt32 count = 0;
-					MSF_Data::PickRandomMods(&mods, &ammoMod, &ammo, &count);
-					_DEBUG("picked ammo: %p, %i", ammo, count);
-					if (ammoMod && ammo)
+					ExtraInstanceData* extraInstanceData = (ExtraInstanceData*)inventoryItem.stack->extraData->GetByType(kExtraData_InstanceData);
+					if (extraInstanceData && extraInstanceData->instanceData)
 					{
-						BGSInventoryItem* invItem = Utilities::GetEquippedInventoryWeapon(randomActor);
-						if (!invItem || !invItem->stack || invItem->stack->next || !invItem->stack->extraData || invItem->stack->count != 1)
-							continue;
-						BGSObjectInstanceExtra* modData = (BGSObjectInstanceExtra*)invItem->stack->extraData->GetByType(kExtraData_ObjectInstance);
-						Utilities::AttachModToInventoryItem(randomActor, firearm, ammoMod);
-						if (!Utilities::HasObjectMod(modData, ammoMod))
-							continue;
-						if (MSF_MainData::MCMSettingFlags & MSF_MainData::bReplaceAmmoWithSpawned)
+						TESObjectWEAP::InstanceData* instanceData = (TESObjectWEAP::InstanceData*)extraInstanceData->instanceData;
+						eqAmmo = instanceData->ammo;
+					}
+					if (!eqAmmo)
+						continue;
+					BGSObjectInstanceExtra* modData = (BGSObjectInstanceExtra*)inventoryItem.stack->extraData->GetByType(kExtraData_ObjectInstance);
+					baseAmmo = MSF_Data::GetBaseCaliber(modData, firearm);
+					ammo = baseAmmo;
+					if (!baseAmmo)
+						baseAmmo = eqAmmo;
+					else
+						_DEBUG("baseCal: %s", baseAmmo->GetEditorID());
+
+				}
+				else if (!eqAmmo)
+					continue;
+				std::vector<BGSMod::Attachment::Mod*> mods;
+				BGSMod::Attachment::Mod* ammoMod = nullptr;
+				UInt32 newcount = 0;
+				if (MSF_MainData::MCMSettingFlags & (MSF_MainData::bSpawnRandomAmmo | MSF_MainData::bSpawnRandomMods | MSF_MainData::bReplaceAmmoWithSpawned))
+					MSF_Data::PickRandomMods(&mods, &ammoMod, &ammo, &newcount);
+				if (ammo)
+					_DEBUG("picked ammo, newcount: %s, %i", ammo->GetEditorID(), newcount);
+				for (auto itMods = mods.begin(); itMods != mods.end(); itMods++)
+				{
+					Utilities::AttachModToInventoryItem(randomActor, firearm, *itMods);
+					_DEBUG("mod added");
+				}//check mod association or inject to TESObjectWEAP at start
+				if (ammoMod && ammo)
+				{
+					Utilities::AttachModToInventoryItem(randomActor, firearm, ammoMod);
+
+					if (inventoryItem.stack->extraData)
+					{
+						ExtraInstanceData* extraInstanceData = (ExtraInstanceData*)inventoryItem.stack->extraData->GetByType(kExtraData_InstanceData);
+						if (extraInstanceData && extraInstanceData->instanceData)
 						{
-							count = Utilities::GetInventoryItemCount(randomActor->inventoryList, baseAmmo);
-							if (!count)
-								continue;
-							Utilities::RemoveItem(randomActor, baseAmmo, count, true);
+							TESObjectWEAP::InstanceData* instanceData = (TESObjectWEAP::InstanceData*)extraInstanceData->instanceData;
+							if (instanceData->ammo)
+								eqAmmo = instanceData->ammo;
+							_DEBUG("instance2");
 						}
-						Utilities::AddItem(randomActor, ammo, count, true);
+						//BGSObjectInstanceExtra* modData = (BGSObjectInstanceExtra*)inventoryItem.stack->extraData->GetByType(kExtraData_ObjectInstance); //comment
+						//_DEBUG("ammomod added: %02X", Utilities::HasObjectMod(modData, ammoMod)); //comment
 					}
-					for (auto itMods = mods.begin(); itMods != mods.end(); itMods++)
+				}
+				ammoNeeded.push_back(eqAmmo);
+				UInt32 count = Utilities::GetInventoryItemCount(randomActor->inventoryList, eqAmmo);
+				_DEBUG("eqAmmo ammo: %s, %i", eqAmmo->GetEditorID(), count);
+				if (!count)
+				{
+					_DEBUG("!count");
+					TESAmmo* hasAmmo = nullptr;
+					count = Utilities::GetInventoryItemCount(randomActor->inventoryList, baseAmmo);
+					if (!count)
 					{
-						Utilities::AttachModToInventoryItem(randomActor, firearm, *itMods);
-						_DEBUG("mod added");
+						auto itAmmo = MSF_MainData::ammoDataMap.find(baseAmmo);
+						if (itAmmo != MSF_MainData::ammoDataMap.end())
+						{
+							for (auto ammoMod : itAmmo->second->ammoMods)
+							{
+								count = Utilities::GetInventoryItemCount(randomActor->inventoryList, ammoMod.ammo);
+								if (count)
+								{
+									hasAmmo = ammoMod.ammo;
+									break;
+								}
+							}
+						}
 					}
-					//check mod association or inject to TESObjectWEAP at start
+					else
+						hasAmmo = baseAmmo;
+					if (hasAmmo)
+						_DEBUG("hasAmmo: %s, %i", hasAmmo->GetEditorID(), count);
+					if (!count)
+					{
+						if (newcount)
+						{
+							count = newcount;
+							_DEBUG("newcount");
+						}
+						else
+						{
+							_DEBUG("!count2");
+							UInt32 minRandomAmmo = MSF_MainData::iMinRandomAmmo;
+							UInt32 maxRandomAmmo = MSF_MainData::iMaxRandomAmmo;
+							if (!minRandomAmmo)
+								minRandomAmmo = 1;
+							if (maxRandomAmmo > 1000)
+								maxRandomAmmo = 1000;
+							if (!maxRandomAmmo)
+								maxRandomAmmo = 1;
+							if (minRandomAmmo > maxRandomAmmo)
+								minRandomAmmo = maxRandomAmmo;
+							count = rand() % (maxRandomAmmo - minRandomAmmo + 1) + minRandomAmmo;
+							_DEBUG("count2: %i", count);
+						}
+					}
+					else if (MSF_MainData::MCMSettingFlags & MSF_MainData::bReplaceAmmoWithSpawned)
+					{
+						if (std::find(ammoNeeded.begin(), ammoNeeded.end(), hasAmmo) == ammoNeeded.end())
+							Utilities::RemoveItem(randomActor, hasAmmo, count, true);
+						_DEBUG("removed");
+					}
+					else if (newcount) // not necessary
+					{
+						count = newcount;
+						_DEBUG("newcount2");
+					}
+					Utilities::AddItem(randomActor, eqAmmo, count, true);
+					_DEBUG("added");
 				}
 			}
 		}

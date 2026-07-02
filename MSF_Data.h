@@ -758,6 +758,7 @@ public:
 	static std::unordered_map<BGSMod::Attachment::Mod*, AmmoData::AmmoMod*> ammoModMap;
 	//static std::unordered_map<TESAmmo*, AmmoData::AmmoMod*> ammoMap;
 	static std::unordered_map<BGSMod::Attachment::Mod*, ChamberData> modChamberMap;
+	static std::unordered_map<TESObjectWEAP*, ChamberData> weapChamberMap;
 	static std::unordered_map<TESObjectMISC*, BGSMod::Attachment::Mod*> miscModMap;
 	//static std::unordered_map<BGSMod::Attachment::Mod*, UniqueState> modUniqueStateMap;
 	//static std::unordered_map<TESObjectWEAP*, UniqueState> weapUniqueStateMap;
@@ -902,7 +903,7 @@ namespace MSF_Data
 	bool CheckSwitchRequirements(BGSInventoryItem::Stack* stack, ModData::Mod* modToAttach, ModData::Mod* modToRemove);
 	bool QueueModsToSwitch(ModData::Mod* modToAttach, ModData::Mod* modToRemove, BGSSoundDescriptorForm* sound);
 	TESAmmo* GetBaseCaliber(BGSObjectInstanceExtra* objectModData, TESObjectWEAP* weapBase);
-	bool GetChamberData(BGSObjectInstanceExtra* mods, TESObjectWEAP::InstanceData* weapInstance, UInt16* chamberSize, UInt16* flags);
+	bool GetChamberData(TESObjectWEAP* weapon, BGSObjectInstanceExtra* mods, TESObjectWEAP::InstanceData* weapInstance, UInt16* chamberSize, UInt16* flags);
 	bool GetAttachedChildren(BGSObjectInstanceExtra* mods, BGSMod::Attachment::Mod* parent, std::vector<BGSMod::Attachment::Mod*>* children, bool checkIF);
 	bool PickRandomMods(std::vector<BGSMod::Attachment::Mod*>* mods, BGSMod::Attachment::Mod** ammoMod, TESAmmo** ammo, UInt32* count);
 	TESIdleForm* GetReloadAnimation(Actor* actor);

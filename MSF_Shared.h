@@ -55,10 +55,7 @@ inline void _DEBUG(const char* fmt, ...)
 	va_end(args);
 }
 #else
-inline void _DEBUG(const char* fmt, ...)
-{
-
-}
+#define _DEBUG(ignored, ...)
 #endif
 
 

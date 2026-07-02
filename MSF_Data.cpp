@@ -104,6 +104,7 @@ std::unordered_map<BGSMod::Attachment::Mod*, ModData::Mod*> MSF_MainData::modDat
 std::unordered_map<BGSMod::Attachment::Mod*, AmmoData::AmmoMod*> MSF_MainData::ammoModMap;
 //std::unordered_map<TESAmmo*, AmmoData::AmmoMod*> MSF_MainData::ammoMap;
 std::unordered_map<BGSMod::Attachment::Mod*, ChamberData> MSF_MainData::modChamberMap;
+std::unordered_map<TESObjectWEAP*, ChamberData> MSF_MainData::weapChamberMap;
 std::unordered_map<TESObjectMISC*, BGSMod::Attachment::Mod*> MSF_MainData::miscModMap;
 std::unordered_map<KeywordValue, KeybindData*> MSF_MainData::keybindAPMap;
 std::vector<KeywordValue> MSF_MainData::uniqueStateAPValues;
@@ -2403,9 +2404,27 @@ namespace MSF_Data
 						std::string str = chamberSize["mod"].asString();
 						if (str == "")
 							continue;
-						BGSMod::Attachment::Mod* mod = (BGSMod::Attachment::Mod*)Runtime_DynamicCast(Utilities::GetFormFromIdentifier(str), RTTI_TESForm, RTTI_BGSMod__Attachment__Mod);
+						TESForm* form = Utilities::GetFormFromIdentifier(str);
+						BGSMod::Attachment::Mod* mod = (BGSMod::Attachment::Mod*)Runtime_DynamicCast(form, RTTI_TESForm, RTTI_BGSMod__Attachment__Mod);
 						if (!mod)
+						{
+							TESObjectWEAP* weap = DYNAMIC_CAST(form, TESForm, TESObjectWEAP);
+							if (!weap)
+								continue;
+
+							UInt16 flags = chamberSize["flags"].asInt();
+							flags = (flags << 4) & ExtraWeaponState::WeaponState::mChamberMask;
+							UInt16 size = chamberSize["chamberSize"].asInt();
+							auto itChamberWeap = MSF_MainData::weapChamberMap.find(weap);
+							if (itChamberWeap != MSF_MainData::weapChamberMap.end())
+							{
+								itChamberWeap->second.chamberSize = size;
+								itChamberWeap->second.flags = flags;
+							}
+							else
+								MSF_MainData::weapChamberMap.insert({ weap, ChamberData(size, flags) });
 							continue;
+						}
 						UInt16 flags = chamberSize["flags"].asInt();
 						flags = (flags << 4) & ExtraWeaponState::WeaponState::mChamberMask;
 						UInt16 size = chamberSize["chamberSize"].asInt();
@@ -3592,28 +3611,35 @@ namespace MSF_Data
 		return ammoConverted;
 	}
 
-	bool GetChamberData(BGSObjectInstanceExtra* mods, TESObjectWEAP::InstanceData* weapInstance, UInt16* chamberSize, UInt16* flags)
+	bool GetChamberData(TESObjectWEAP* weapon, BGSObjectInstanceExtra* mods, TESObjectWEAP::InstanceData* weapInstance, UInt16* chamberSize, UInt16* flags)
 	{
-		if (!mods || !weapInstance || !weapInstance->ammo || !chamberSize || !flags)
+		if (!weapon || !weapInstance || !weapInstance->ammo || !chamberSize || !flags)
 			return false;
-		auto data = mods->data;
-		if (!data || !data->forms)
-			return false;
-		UInt64 priority = 0;
 		ChamberData* currChamberData = nullptr;
-		for (UInt32 i = 0; i < data->blockSize / sizeof(BGSObjectInstanceExtra::Data::Form); i++)
+		auto itweapdata = MSF_MainData::weapChamberMap.find(weapon);
+		if (itweapdata != MSF_MainData::weapChamberMap.end())
+			currChamberData = &itweapdata->second;
+		if (mods)
 		{
-			BGSMod::Attachment::Mod* objectMod = (BGSMod::Attachment::Mod*)Runtime_DynamicCast(LookupFormByID(data->forms[i].formId), RTTI_TESForm, RTTI_BGSMod__Attachment__Mod);
-			if (!objectMod)
-				continue;
-			UInt64 currPriority = convertToUnsignedAbs<UInt8>(objectMod->priority);
-			if (currPriority < priority)
-				continue;
-			auto itmoddata = MSF_MainData::modChamberMap.find(objectMod);
-			if (itmoddata == MSF_MainData::modChamberMap.end())
-				continue;
-			currChamberData = &itmoddata->second;
-			priority = currPriority;
+			auto data = mods->data;
+			if (data && data->forms)
+			{
+				UInt64 priority = 0;
+				for (UInt32 i = 0; i < data->blockSize / sizeof(BGSObjectInstanceExtra::Data::Form); i++)
+				{
+					BGSMod::Attachment::Mod* objectMod = (BGSMod::Attachment::Mod*)Runtime_DynamicCast(LookupFormByID(data->forms[i].formId), RTTI_TESForm, RTTI_BGSMod__Attachment__Mod);
+					if (!objectMod)
+						continue;
+					UInt64 currPriority = convertToUnsignedAbs<UInt8>(objectMod->priority);
+					if (currPriority < priority)
+						continue;
+					auto itmoddata = MSF_MainData::modChamberMap.find(objectMod);
+					if (itmoddata == MSF_MainData::modChamberMap.end())
+						continue;
+					currChamberData = &itmoddata->second;
+					priority = currPriority;
+				}
+			}
 		}
 		if (!currChamberData)
 		{

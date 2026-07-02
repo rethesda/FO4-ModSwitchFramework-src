@@ -183,7 +183,7 @@ bool ExtraWeaponState::WeaponState::FillData(ExtraDataList* extraDataList, Equip
 	if (currInstanceData->ammo)
 	{
 		//BGSMod::Attachment::Mod* receiver = Utilities::GetModAtAttachPoint(attachedMods, MSF_MainData::receiverAP);
-		MSF_Data::GetChamberData(attachedMods, currInstanceData, &this->chamberSize, &this->flags);
+		MSF_Data::GetChamberData(baseWeap, attachedMods, currInstanceData, &this->chamberSize, &this->flags);
 		this->chamberedAmmo = currInstanceData->ammo;
 		this->equippedAmmo = currInstanceData->ammo;
 		this->ammoCapacity = currInstanceData->ammoCapacity;
@@ -358,13 +358,13 @@ bool ExtraWeaponState::WeaponState::UpdateAmmoState(ExtraDataList* extraDataList
 
 	if (eventType != kEventTypeModdedWorkbench)
 	{
-		MSF_Data::GetChamberData(attachedMods, instanceData, &this->chamberSize, &this->flags);
+		MSF_Data::GetChamberData(weapon, attachedMods, instanceData, &this->chamberSize, &this->flags);
 		this->ammoCapacity = instanceData->ammoCapacity;
 		//if (!equipData)
 		//	statechange.second->loadedAmmo = statechange.second->ammoCapacity;
 	}
 	TESAmmo* targetAmmo = nullptr;
-	bool hasBCR = MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(instanceData);
+	bool hasBCR = (this->flags & bHasBCR) != 0;//MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(instanceData);
 	if (!hasBCR)
 	{
 		if (this->BCRammo.size() > 0 && (eventType != kEventTypeModdedWorkbench))
@@ -501,12 +501,12 @@ bool ExtraWeaponState::HandleEquipEvent(ExtraDataList* extraDataList, EquipWeapo
 		}
 		else
 			equipData->loadedAmmoCount = this->currentState->loadedAmmo;
-		//this->currentState->flags |= MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(currInstanceData) << 5;
+		this->currentState->flags |= MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(currInstanceData) << 5;
 		//this->currentState->flags |= MSF_Data::InstanceHasTRSupport(currInstanceData) << 4;
-		bit_set<UInt16>(this->currentState->flags, 5, MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(currInstanceData));
+		//bit_set<UInt16>(this->currentState->flags, 5, MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(currInstanceData));
 		bit_set<UInt16>(this->currentState->flags, 4, MSF_Data::InstanceHasTRSupport(currInstanceData));
 		if ((this->currentState->flags & WeaponState::bHasBCR) && (this->currentState->flags & WeaponState::bHasTacticalReload) && (MSF_MainData::MCMSettingFlags & MSF_MainData::bEnableTacticalReloadChamber))
-			MSF_MainData::BCRinterfaceHolder.SetBCRammoCap(this->currentState->ammoCapacity + 1);
+			MSF_MainData::BCRinterfaceHolder.SetBCRammoCap(this->currentState->ammoCapacity + this->currentState->chamberSize);
 		//set BCR ammoCount?
 		_DEBUG("eq: %i, stored: %i", equipData->loadedAmmoCount, this->currentState->loadedAmmo);
 		//if (!Utilities::HasObjectMod(attachedMods, this->currentState->currentSwitchedAmmo->mod))//validate
@@ -517,6 +517,18 @@ bool ExtraWeaponState::HandleEquipEvent(ExtraDataList* extraDataList, EquipWeapo
 	else
 		this->UpdateWeaponStates(extraDataList, equipData, kEventTypeEquip); //should not reach this
 	return true;
+}
+
+bool ExtraWeaponState::HandleBCRReloadStart()
+{
+	if (this->currentState)
+	{
+		this->currentState->flags |= WeaponState::bHasBCR;
+		if ((this->currentState->flags & WeaponState::bHasTacticalReload) && (MSF_MainData::MCMSettingFlags & MSF_MainData::bEnableTacticalReloadChamber))
+			MSF_MainData::BCRinterfaceHolder.SetBCRammoCap(this->currentState->ammoCapacity + this->currentState->chamberSize);
+		return true;
+	}
+	return false;
 }
 
 bool ExtraWeaponState::HandleFireEvent(ExtraDataList* extraDataList, EquipWeaponData* equipData)
@@ -602,7 +614,7 @@ bool ExtraWeaponState::HandleReloadEvent(ExtraDataList* extraDataList, EquipWeap
 			equipData->loadedAmmoCount = ammoToUse;
 			this->currentState->loadedAmmo = ammoToUse;
 			this->currentState->chamberedCount = equipData->loadedAmmoCount < this->currentState->chamberSize ? equipData->loadedAmmoCount : this->currentState->chamberSize;
-			if (MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(currInstanceData))
+			if (this->currentState->flags & WeaponState::bHasBCR) //MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(currInstanceData))
 			{
 				this->currentState->BCRammo.clear();
 				for (UInt32 ammoIdx = 0; ammoIdx < this->currentState->loadedAmmo; ammoIdx++)
@@ -838,6 +850,13 @@ UInt8 ExtraWeaponState::HasNotSupportedAmmo()
 	if (!this->currentState)
 		return 0;
 	return this->currentState->flags & WeaponState::mAmmoMask;
+}
+
+bool ExtraWeaponState::HasBCRsupport()
+{
+	if (!this->currentState)
+		return false;
+	return (this->currentState->flags & WeaponState::bHasBCR) != 0;
 }
 
 void ExtraWeaponState::PrintStoredData()

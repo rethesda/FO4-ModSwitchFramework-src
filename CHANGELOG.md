@@ -2,7 +2,9 @@
 v1.2.7
 features:
 - future HaBCR support; 1.9.1 and below is not supported
+- chamber data can now be applied for base weapons
 fixes:
+- fixed an issue where LL injections could result in NPCs not being able to use their weapons
 - stability and performance improvements
 ---
 v1.2.6

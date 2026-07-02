@@ -35,6 +35,7 @@ public:
 	//bool SetWeaponState(ExtraDataList* extraDataList, EquipWeaponData* equipData, bool temporary);
 	//bool RecoverTemporaryState(ExtraDataList* extraDataList, EquipWeaponData* equipData);
 	//bool SetCurrentStateTemporary();
+	bool HandleBCRReloadStart();
 	bool HandleEquipEvent(ExtraDataList* extraDataList, EquipWeaponData* equipData);
 	bool HandleFireEvent(ExtraDataList* extraDataList, EquipWeaponData* equipData);
 	bool HandleAmmoChangeEvent(ExtraDataList* extraDataList, EquipWeaponData* equipData);
@@ -46,6 +47,7 @@ public:
 	bool SetEquippedAmmo(TESAmmo* ammo);
 	TESAmmo* GetEquippedAmmo();
 	UInt8 HasNotSupportedAmmo();
+	bool HasBCRsupport();
 	void PrintStoredData();
 
 	enum
@@ -336,6 +338,7 @@ class BCRinterface
 {
 private:
 	typedef UInt32(*HaBCR_GetCurrentReloadMode_t)();
+	typedef bool (*HaBCR_IsBCRcompatible_t)();
 	typedef bool (*HaBCR_BeginAmmoSwitch_t)();
 	typedef bool (*HaBCR_EndAmmoSwitch_t)();
 	typedef bool (*HaBCR_SetAmmoCapacity_t)(UInt32 a_capacity);
@@ -344,7 +347,7 @@ public:
 
 	BCRinterface()
 	{
-		
+
 		_base = reinterpret_cast<uintptr_t>(GetModuleHandle("BulletCountedReload.dll"));
 		_HaBCRmodule = GetModuleHandle("HaBCR.dll");
 		_baseH = reinterpret_cast<uintptr_t>(_HaBCRmodule);
@@ -360,10 +363,11 @@ public:
 			HaBCR_SetAmmoCapacity = (HaBCR_SetAmmoCapacity_t)GetProcAddress(_HaBCRmodule, "HaBCR_SetAmmoCapacity");
 			HaBCR_UpdateAmmoStateAfterSwitch = (HaBCR_UpdateAmmoStateAfterSwitch_t)GetProcAddress(_HaBCRmodule, "HaBCR_UpdateAmmoStateAfterSwitch");
 			HaBCR_GetCurrentReloadMode = (HaBCR_GetCurrentReloadMode_t)GetProcAddress(_HaBCRmodule, "HaBCR_GetCurrentReloadMode");
-			if (!HaBCR_BeginAmmoSwitch || !HaBCR_EndAmmoSwitch || !HaBCR_SetAmmoCapacity || !HaBCR_UpdateAmmoStateAfterSwitch || !HaBCR_GetCurrentReloadMode)
+			HaBCR_IsBCRcompatible = (HaBCR_IsBCRcompatible_t)GetProcAddress(_HaBCRmodule, "HaBCR_IsBCRCompatibleEnabled");
+			if (!HaBCR_BeginAmmoSwitch || !HaBCR_EndAmmoSwitch || !HaBCR_SetAmmoCapacity || !HaBCR_UpdateAmmoStateAfterSwitch || !HaBCR_GetCurrentReloadMode || !HaBCR_IsBCRcompatible);
 			{
 				_baseH = 0;
-				_MESSAGE("Dllexports in HaBCR.dll could not be found. Updating HaBCR to the latest version might fix this issue.");
+				_MESSAGE("Dllexport(s) in HaBCR.dll could not be found. Updating HaBCR to the latest version (>=1.9.1) might fix this issue.");
 			}
 		}
 		else
@@ -394,14 +398,22 @@ public:
 		HaBCR_avif = RelocModuleAddr<ActorValueInfo*>(_base, 0x155908, 0x155908);
 	};
 
-	bool InstanceHasBCRSupport(TESObjectWEAP::InstanceData* instance)
+	bool EquippedWeaponHasBCRFlag(Actor* owner)
+	{
+		auto weapState = MSF_MainData::weaponStateStore.GetEquipped(owner);
+		if (!weapState)
+			return false;
+		return weapState->HasBCRsupport();
+	}
+
+	bool InstanceHasBCRSupport(TESObjectWEAP::InstanceData* instance) //only during reload
 	{
 		if (!enabled)
 			return false;
 		if (!instance)
 			return false;
 		auto eqInstance = Utilities::GetEquippedWeaponInstanceData(*g_player);
-		if (eqInstance && eqInstance == instance && _baseH && HaBCR_GetCurrentReloadMode && HaBCR_GetCurrentReloadMode())
+		if (_baseH && (HaBCR_GetCurrentReloadMode && ((eqInstance && eqInstance == instance && HaBCR_GetCurrentReloadMode()) || (HaBCR_IsBCRcompatible && HaBCR_IsBCRcompatible() && ((MSF_MainData::BCR_AVIF && instance->skill == MSF_MainData::BCR_AVIF) || (MSF_MainData::BCR_AVIF2 && instance->skill == MSF_MainData::BCR_AVIF2))))))
 			return true;
 		return _base && ((MSF_MainData::BCR_AVIF && instance->skill == MSF_MainData::BCR_AVIF) || (MSF_MainData::BCR_AVIF2 && instance->skill == MSF_MainData::BCR_AVIF2));
 	}
@@ -410,7 +422,7 @@ public:
 	{
 		if (!enabled)
 			return false;
-		if (_baseH && HaBCR_SetAmmoCapacity && HaBCR_GetCurrentReloadMode && HaBCR_GetCurrentReloadMode())
+		if (_baseH && HaBCR_SetAmmoCapacity && HaBCR_GetCurrentReloadMode && (HaBCR_GetCurrentReloadMode() || !_base))
 			return HaBCR_SetAmmoCapacity(ammoCap);
 		if (!_base)
 			return false;
@@ -425,6 +437,7 @@ public:
 			return false;
 		return (*(UInt32*)BCR_ammoCount.GetUIntPtr()) = loadedAmmo;
 	}
+
 	bool StoreBCRvariables()
 	{
 		if (!enabled)
@@ -542,6 +555,7 @@ private:
 	HaBCR_SetAmmoCapacity_t HaBCR_SetAmmoCapacity;
 	HaBCR_UpdateAmmoStateAfterSwitch_t HaBCR_UpdateAmmoStateAfterSwitch;
 	HaBCR_GetCurrentReloadMode_t HaBCR_GetCurrentReloadMode;
+	HaBCR_IsBCRcompatible_t HaBCR_IsBCRcompatible;
 
 };
 

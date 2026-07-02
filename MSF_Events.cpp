@@ -395,7 +395,9 @@ UInt64 HUDShowAmmoCounter_Hook(HUDAmmoCounter* ammoCounter, UInt32 visibleTime)
 bool CheckAmmoCountForReload_Hook(Actor* target, UInt32 loadedAmmo, UInt32 ammoCap, UInt32 ammoReserve)
 {
 	_DEBUG("reloadCheck L: %i, cap: %i, R: %i", loadedAmmo, ammoCap, ammoReserve);
-	if (target == *g_player && MSF_MainData::modSwitchManager.GetSetForcedReload())
+	if (target != *g_player)
+		return (loadedAmmo < ammoCap && loadedAmmo < ammoReserve);
+	if (MSF_MainData::modSwitchManager.GetSetForcedReload())
 		return true;
 	//ExtraWeaponState* extraState = MSF_MainData::weaponStateStore.GetEquipped(target);
 	//if (extraState)
@@ -405,11 +407,12 @@ bool CheckAmmoCountForReload_Hook(Actor* target, UInt32 loadedAmmo, UInt32 ammoC
 	//	if (ammoState)
 	//		return ((loadedAmmo - ammoState->chamberedCount < ammoCap) && ammoReserve); //HasTRsupport
 	//}
+	TESObjectWEAP* weapon = Utilities::GetEquippedGun(target);
 	TESObjectWEAP::InstanceData* instanceData = Utilities::GetEquippedInstanceData(target);
 	UInt16 chamberSize = 0;
 	UInt16 flags = 0;
-	MSF_Data::GetChamberData(Utilities::GetEquippedModData(target), instanceData, &chamberSize, &flags);
-	if ((MSF_Data::InstanceHasTRSupport(instanceData) || flags & ExtraWeaponState::WeaponState::bHasTacticalReload) && MSF_MainData::MCMSettingFlags & MSF_MainData::bEnableTacticalReloadChamber && !MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(instanceData))
+	MSF_Data::GetChamberData(weapon, Utilities::GetEquippedModData(target), instanceData, &chamberSize, &flags);
+	if ((MSF_Data::InstanceHasTRSupport(instanceData) || flags & ExtraWeaponState::WeaponState::bHasTacticalReload) && MSF_MainData::MCMSettingFlags & MSF_MainData::bEnableTacticalReloadChamber && !MSF_MainData::BCRinterfaceHolder.EquippedWeaponHasBCRFlag(target))
 	{
 		return (loadedAmmo < (ammoCap+chamberSize) && loadedAmmo < ammoReserve);
 	}
@@ -789,6 +792,7 @@ UInt8 PlayerAnimationEvent_Hook(void* arg1, BSAnimationGraphEvent* arg2, void** 
 	const char* name = arg2->eventName.c_str();
 	bool reload = false;
 	bool fire = false;
+	bool reloadStart = false;
 	UInt8 didSwitch = 0;
 	UInt32 oldLoadedAmmoCount = 0;
 #ifdef DEBUG
@@ -1084,18 +1088,7 @@ UInt8 PlayerAnimationEvent_Hook(void* arg1, BSAnimationGraphEvent* arg2, void** 
 	}
 	else if (!_strcmpi("reloadStateEnter", name))
 	{
-		TESObjectWEAP::InstanceData* currInstanceData = Utilities::GetEquippedWeaponInstanceData(*g_player);
-		if (MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(currInstanceData))
-		{
-			MSF_MainData::modSwitchManager.SetAnimCanBeCancelled(false);
-			EquipWeaponData* eqData = Utilities::GetEquippedWeaponData(*g_player);
-			if (eqData)
-				oldLoadedAmmoCount = eqData->loadedAmmoCount;
-			UInt16 BCRtype = oldLoadedAmmoCount ? ExtraWeaponState::bEventTypeReloadBCR : ExtraWeaponState::bEventTypeReloadFullBCR;
-			MSF_MainData::modSwitchManager.SetIsBCRreload(BCRtype);
-		}
-		else
-			MSF_MainData::modSwitchManager.SetAnimCanBeCancelled(true);
+		reloadStart = true;
 	}
 	else if (!_strcmpi("customAnimStart", name))
 	{
@@ -1145,6 +1138,24 @@ UInt8 PlayerAnimationEvent_Hook(void* arg1, BSAnimationGraphEvent* arg2, void** 
 		EquipWeaponData* eqData = Utilities::GetEquippedWeaponData(*g_player);
 		if (eqData && eqData->loadedAmmoCount == 0 && Utilities::GetInventoryItemCount((*g_player)->inventoryList, eqData->ammo) == 0)
 			MSF_Base::SwitchAmmoHotkey(KeybindData::bToggle, nullptr, true, true);
+	}
+	else if (reloadStart)
+	{
+		Actor* playerActor = *g_player;
+		TESObjectWEAP::InstanceData* currInstanceData = Utilities::GetEquippedWeaponInstanceData(playerActor);
+		if (MSF_MainData::BCRinterfaceHolder.InstanceHasBCRSupport(currInstanceData))
+		{
+			MSF_MainData::modSwitchManager.SetAnimCanBeCancelled(false);
+			EquipWeaponData* eqData = Utilities::GetEquippedWeaponData(playerActor);
+			if (eqData)
+				oldLoadedAmmoCount = eqData->loadedAmmoCount;
+			UInt16 BCRtype = oldLoadedAmmoCount ? ExtraWeaponState::bEventTypeReloadBCR : ExtraWeaponState::bEventTypeReloadFullBCR;
+			MSF_MainData::modSwitchManager.SetIsBCRreload(BCRtype);
+			auto weapState = MSF_MainData::weaponStateStore.GetEquipped(playerActor);
+			weapState->HandleBCRReloadStart();
+		}
+		else
+			MSF_MainData::modSwitchManager.SetAnimCanBeCancelled(true);
 	}
 
 	return ret;
