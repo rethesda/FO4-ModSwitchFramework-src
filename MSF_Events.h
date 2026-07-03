@@ -447,7 +447,7 @@ public:
 	static void StartUpdate(TESBoundObject* changeditem)
 	{
 		
-		if (!changeditem || (((uintptr_t)changeditem) & 0xFFFFFFFF) == 0)
+		if (!changeditem)// || (((uintptr_t)changeditem) & 0xFFFFFFFF) == 0 || (((uintptr_t)changeditem) % 0x8) != 0)//|| ((uintptr_t)changeditem & (0xFFFFFFFFFFFFFFFFull >> (64 - msb(modulehandle)))))
 			return;
 		//if (IsBadReadPtr((uintptr_t)changeditem+0x1A, 0x1))
 		//	return;

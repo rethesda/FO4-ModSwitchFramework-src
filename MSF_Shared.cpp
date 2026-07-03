@@ -680,7 +680,7 @@ namespace Utilities
 
 	EquipWeaponData* GetEquippedWeaponData(Actor* owner)
 	{
-		if (!owner || !owner->middleProcess || !owner->middleProcess->unk08 || !owner->middleProcess->unk08->equipData.entries)
+		if (!owner || !owner->middleProcess || !owner->middleProcess->unk08 || !owner->middleProcess->unk08->equipData.count || !owner->middleProcess->unk08->equipData.entries || !Runtime_DynamicCast(owner->middleProcess->unk08->equipData[0].equippedData, RTTI_EquippedItemData, RTTI_EquippedWeaponData))
 			return nullptr;
 		return (EquipWeaponData*)owner->middleProcess->unk08->equipData[0].equippedData;
 	}

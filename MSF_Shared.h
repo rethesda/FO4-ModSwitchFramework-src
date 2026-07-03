@@ -42,6 +42,15 @@ inline void bit_set(T& number, UInt8 n, bool value) {
 	number = (number & ~((T)1 << n)) | ((T)value << n);
 };
 
+inline UInt8 msb(UInt64 value)
+{
+	UInt8 r = 0;
+	while (value >>= 1) {
+		r++;
+	}
+	return r;
+}
+
 typedef unsigned short KeywordValue;
 typedef UInt32 ObjectRefHandle;
 
