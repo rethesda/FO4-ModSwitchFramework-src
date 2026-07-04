@@ -945,6 +945,8 @@ namespace MSF_Data
 		catch (...)
 		{
 			_FATALERROR("Fatal Error - MCM Keybind storage deserialization failure");
+			std::exception_ptr eptr = std::current_exception();
+			handle_eptr(eptr);
 			return false;
 		}
 		return false;
@@ -1180,6 +1182,8 @@ namespace MSF_Data
 			catch (...)
 			{
 				_FATALERROR("Fatal Error - MSF Keybind data deserialization failure");
+				std::exception_ptr eptr = std::current_exception();
+				handle_eptr(eptr);
 				return false;
 			}
 		}
@@ -2794,6 +2798,8 @@ namespace MSF_Data
 		catch (...)
 		{
 			_WARNING("Warning - Failed to load Gameplay Data from %s.json", fileName.c_str());
+			std::exception_ptr eptr = std::current_exception();
+			handle_eptr(eptr);
 			return false;
 		}
 		return false;

@@ -51,6 +51,8 @@ inline UInt8 msb(UInt64 value)
 	return r;
 }
 
+void handle_eptr(std::exception_ptr eptr);
+
 typedef unsigned short KeywordValue;
 typedef UInt32 ObjectRefHandle;
 

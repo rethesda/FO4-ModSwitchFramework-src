@@ -6,6 +6,19 @@ BSExtraData::~BSExtraData() {};
 void BSExtraData::Unk_01() {};
 void BSExtraData::Unk_02() {};
 
+void handle_eptr(std::exception_ptr eptr)
+{
+	try
+	{
+		if (eptr)
+			std::rethrow_exception(eptr);
+	}
+	catch (const std::exception& e)
+	{
+		_WARNING("Exception: ", e.what());
+	}
+}
+
 CheckStackIDFunctor::CheckStackIDFunctor(UInt32 ID)
 {
 	vtbl = g_CheckStackIDFunctor;
