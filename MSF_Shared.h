@@ -605,6 +605,7 @@ namespace Utilities
 	TESForm* GetFormFromIdentifier(const std::string& identifier);
 	const char* GetIdentifierFromForm(TESForm* form);
 	bool AddToFormList(BGSListForm* flst, TESForm* form, SInt64 idx);
+	bool HasContainerBeenModified(TESObjectREFR* cont);
 	UInt32 GetLoadedAmmoCount(Actor* owner);
 	UInt32 GetEquippedItemFormID(Actor * ownerActor, UInt32 iEquipSlot = 41);
 	TESObjectWEAP::InstanceData* GetEquippedWeaponInstanceData(Actor* ownerActor);

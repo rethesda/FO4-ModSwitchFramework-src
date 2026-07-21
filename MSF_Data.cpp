@@ -1410,6 +1410,10 @@ namespace MSF_Data
 				flag = MSF_MainData::bAllowReadyKeyToCancel;
 			else if (settingName == "bAllowNonSwitchReloadCancel")
 				flag = MSF_MainData::bAllowNonSwitchReloadCancel;
+			else if (settingName == "bSpawAmmoModsForUniqueNPCs")
+				flag = MSF_MainData::bSpawAmmoModsForUniqueNPCs;
+			else if (settingName == "bSpawAmmoModsInUnchangedContainers")
+				flag = MSF_MainData::bSpawAmmoModsInUnchangedContainers;
 			else
 				return false;
 

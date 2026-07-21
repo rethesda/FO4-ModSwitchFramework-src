@@ -345,174 +345,21 @@ private:
 	typedef bool (*HaBCR_UpdateAmmoStateAfterSwitch_t)(UInt32 a_loadedAmmoCount, UInt32 a_ammoCapacity, UInt32 a_totalAmmoCount);
 public:
 
-	BCRinterface()
-	{
+	BCRinterface();
+	bool Init();
+	bool EquippedWeaponHasBCRFlag(Actor* owner);
+	bool InstanceHasBCRSupport(TESObjectWEAP::InstanceData* instance); //only during reload
+	bool SetBCRammoCap(UInt32 ammoCap);
+	bool SetBCRloadedAmmo(UInt32 loadedAmmo);
+	bool StoreBCRvariables();
+	bool RestoreBCRvariables();
+	bool UpdateBCRvariables(UInt32 ammoCount, UInt32 ammoCapacity, UInt32 totalAmmoCount);
 
-		_base = reinterpret_cast<uintptr_t>(GetModuleHandle("BulletCountedReload.dll"));
-		_HaBCRmodule = GetModuleHandle("HaBCR.dll");
-		_baseH = reinterpret_cast<uintptr_t>(_HaBCRmodule);
-		if (_base)
-			_MESSAGE("BulletCountedReload.dll found at %p", _base);
-		else
-			_MESSAGE("BulletCountedReload.dll not found");
-		if (_baseH)
-		{
-			_MESSAGE("HaBCR.dll found at %p", _base);
-			HaBCR_BeginAmmoSwitch = (HaBCR_BeginAmmoSwitch_t)GetProcAddress(_HaBCRmodule, "HaBCR_BeginAmmoSwitch"); // MAKEINTRESOURCE(4)
-			HaBCR_EndAmmoSwitch = (HaBCR_EndAmmoSwitch_t)GetProcAddress(_HaBCRmodule, "HaBCR_EndAmmoSwitch");
-			HaBCR_SetAmmoCapacity = (HaBCR_SetAmmoCapacity_t)GetProcAddress(_HaBCRmodule, "HaBCR_SetAmmoCapacity");
-			HaBCR_UpdateAmmoStateAfterSwitch = (HaBCR_UpdateAmmoStateAfterSwitch_t)GetProcAddress(_HaBCRmodule, "HaBCR_UpdateAmmoStateAfterSwitch");
-			HaBCR_GetCurrentReloadMode = (HaBCR_GetCurrentReloadMode_t)GetProcAddress(_HaBCRmodule, "HaBCR_GetCurrentReloadMode");
-			HaBCR_IsBCRcompatible = (HaBCR_IsBCRcompatible_t)GetProcAddress(_HaBCRmodule, "HaBCR_IsBCRCompatibleEnabled");
-			if (!HaBCR_BeginAmmoSwitch || !HaBCR_EndAmmoSwitch || !HaBCR_SetAmmoCapacity || !HaBCR_UpdateAmmoStateAfterSwitch || !HaBCR_GetCurrentReloadMode || !HaBCR_IsBCRcompatible);
-			{
-				_baseH = 0;
-				_MESSAGE("Dllexport(s) in HaBCR.dll could not be found. Updating HaBCR to the latest version (>=1.9.1) might fix this issue.");
-			}
-		}
-		else
-			_MESSAGE("HaBCR.dll not found");
-		if (_base || _baseH)
-			enabled = true;
-		else
-			enabled = false;
-		//BulletCountedReload.dll+8785
-		//73004
-		//730B8
-		BCR_ammoCount = RelocModuleAddr<UInt32>(_base, 0x79B24, 0x485CC);
-		BCR_ammoCapacity = RelocModuleAddr<UInt32>(_base, 0x79B20, 0x485C8);
-		BCR_instanceData = RelocModuleAddr<TESObjectWEAP::InstanceData*>(_base, 0x79B10, 0x485A8);
-		BCR_totalAmmo = RelocModuleAddr<UInt32>(_base, 0x79B04, 0x485B4);
-		reloadEnded = RelocModuleAddr<bool>(_base, 0x73CA8, 0x45B60);
-		reloadStarted = RelocModuleAddr<bool>(_base, 0x79AD2, 0x48572);
-		incrementer = RelocModuleAddr<UInt32>(_base, 0x79AD4, 0x48574);
-		toAdd = RelocModuleAddr<UInt32>(_base, 0x79B00, 0x4857C);
-		stopPressed = RelocModuleAddr<bool>(_base, 0x79AD1, 0x48571);
-		animWillPlay = RelocModuleAddr<bool>(_base, 0x73CA9, 0x45B61);
-		uncull = RelocModuleAddr<bool>(_base, 0x79AD3, 0x48573);
-		readyToStop = RelocModuleAddr<bool>(_base, 0x79AD0, 0x48570);
-		animDone = RelocModuleAddr<UInt32>(_base, 0x79AE0, 0x48578);
+	void LogStored();
 
-		HaBCR_reloadState = RelocModuleAddr<HaBCR::ReloadState>(_baseH, 0x151690, 0x151690);
-		HaBCR_settings = RelocModuleAddr<HaBCR::Settings>(_base, 0x151218, 0x151218);
-		HaBCR_avif = RelocModuleAddr<ActorValueInfo*>(_base, 0x155908, 0x155908);
-	};
-
-	bool EquippedWeaponHasBCRFlag(Actor* owner)
-	{
-		auto weapState = MSF_MainData::weaponStateStore.GetEquipped(owner);
-		if (!weapState)
-			return false;
-		return weapState->HasBCRsupport();
-	}
-
-	bool InstanceHasBCRSupport(TESObjectWEAP::InstanceData* instance) //only during reload
-	{
-		if (!enabled)
-			return false;
-		if (!instance)
-			return false;
-		auto eqInstance = Utilities::GetEquippedWeaponInstanceData(*g_player);
-		if (_baseH && (HaBCR_GetCurrentReloadMode && ((eqInstance && eqInstance == instance && HaBCR_GetCurrentReloadMode()) || (HaBCR_IsBCRcompatible && HaBCR_IsBCRcompatible() && ((MSF_MainData::BCR_AVIF && instance->skill == MSF_MainData::BCR_AVIF) || (MSF_MainData::BCR_AVIF2 && instance->skill == MSF_MainData::BCR_AVIF2))))))
-			return true;
-		return _base && ((MSF_MainData::BCR_AVIF && instance->skill == MSF_MainData::BCR_AVIF) || (MSF_MainData::BCR_AVIF2 && instance->skill == MSF_MainData::BCR_AVIF2));
-	}
-
-	bool SetBCRammoCap(UInt32 ammoCap)
-	{
-		if (!enabled)
-			return false;
-		if (_baseH && HaBCR_SetAmmoCapacity && HaBCR_GetCurrentReloadMode && (HaBCR_GetCurrentReloadMode() || !_base))
-			return HaBCR_SetAmmoCapacity(ammoCap);
-		if (!_base)
-			return false;
-		return (*(UInt32*)BCR_ammoCapacity.GetUIntPtr()) = ammoCap;
-	}
-
-	bool SetBCRloadedAmmo(UInt32 loadedAmmo)
-	{
-		if (!enabled)
-			return false;
-		if (!_base)
-			return false;
-		return (*(UInt32*)BCR_ammoCount.GetUIntPtr()) = loadedAmmo;
-	}
-
-	bool StoreBCRvariables()
-	{
-		if (!enabled)
-			return false;
-		if (_baseH && HaBCR_BeginAmmoSwitch && HaBCR_GetCurrentReloadMode && HaBCR_GetCurrentReloadMode())
-			return HaBCR_BeginAmmoSwitch();
-		if (!_base)
-			return false;
-		stored_BCR_ammoCount = *(UInt32*)BCR_ammoCount.GetUIntPtr();
-		stored_BCR_ammoCapacity = *(UInt32*)BCR_ammoCapacity.GetUIntPtr();
-		stored_BCR_totalAmmo = *(UInt32*)BCR_totalAmmo.GetUIntPtr();
-		stored_reloadEnded = *(bool*)reloadEnded.GetUIntPtr();
-		stored_reloadStarted = *(bool*)reloadStarted.GetUIntPtr();
-		stored_incrementer = *(UInt32*)incrementer.GetUIntPtr();
-		stored_toAdd = *(UInt32*)toAdd.GetUIntPtr();
-		stored_stopPressed = *(bool*)stopPressed.GetUIntPtr();
-		stored_animWillPlay = *(bool*)animWillPlay.GetUIntPtr();
-		stored_uncull = *(bool*)uncull.GetUIntPtr();
-		stored_readyToStop = *(bool*)readyToStop.GetUIntPtr();
-		stored_animDone = *(UInt32*)animDone.GetUIntPtr();
-		return true;
-	}
-	bool RestoreBCRvariables()
-	{
-		if (!enabled)
-			return false;
-		if (_baseH && HaBCR_EndAmmoSwitch && HaBCR_GetCurrentReloadMode && HaBCR_GetCurrentReloadMode())
-			return HaBCR_EndAmmoSwitch();
-		if (!_base)
-			return false;
-		 (*(UInt32*)BCR_ammoCount.GetUIntPtr()) = stored_BCR_ammoCount;
-		 (*(UInt32*)BCR_ammoCapacity.GetUIntPtr()) = stored_BCR_ammoCapacity;
-		 (*(UInt32*)BCR_totalAmmo.GetUIntPtr()) = stored_BCR_totalAmmo;
-		 (*(bool*)reloadEnded.GetUIntPtr()) = stored_reloadEnded; //
-		 (*(bool*)reloadStarted.GetUIntPtr()) = stored_reloadStarted;
-		 (*(UInt32*)incrementer.GetUIntPtr()) = stored_incrementer; //
-		 (*(UInt32*)toAdd.GetUIntPtr()) = stored_toAdd;
-		 (*(bool*)stopPressed.GetUIntPtr()) = stored_stopPressed; //
-		 (*(bool*)animWillPlay.GetUIntPtr()) = stored_animWillPlay; //
-		 (*(bool*)uncull.GetUIntPtr()) = stored_uncull;
-		 (*(bool*)readyToStop.GetUIntPtr()) = stored_readyToStop;
-		 (*(UInt32*)animDone.GetUIntPtr()) = stored_animDone;
-		return true;
-	}
-	bool UpdateBCRvariables(UInt32 ammoCount, UInt32 ammoCapacity, UInt32 totalAmmoCount)
-	{
-		if (!enabled)
-			return false;
-		if (_baseH && HaBCR_UpdateAmmoStateAfterSwitch && HaBCR_GetCurrentReloadMode && HaBCR_GetCurrentReloadMode())
-			return HaBCR_UpdateAmmoStateAfterSwitch(ammoCount, ammoCapacity, totalAmmoCount);
-		if (!_base)
-			return false;
-		UInt32 ammoCap = *(UInt32*)BCR_ammoCapacity.GetUIntPtr();
-		UInt32 add = ammoCap;
-		if (ammoCap > totalAmmoCount)
-			add = totalAmmoCount;
-		if (add != ammoCap && ammoCount)
-			(*(UInt32*)incrementer.GetUIntPtr()) = ammoCount-1;
-		_DEBUG("ammoCount: %08X, add: %08X, totalAmmoCount: %08X, ammoCap: %08X", ammoCount, add, totalAmmoCount, ammoCap);
-		(*(UInt32*)BCR_ammoCount.GetUIntPtr()) = ammoCount;
-		//*(UInt32*)BCR_ammoCapacity.GetUIntPtr() = stored_BCR_ammoCapacity;
-		(*(UInt32*)BCR_totalAmmo.GetUIntPtr()) = totalAmmoCount-ammoCount;
-		(*(UInt32*)toAdd.GetUIntPtr()) = add;
-		(*(bool*)readyToStop.GetUIntPtr()) = true;
-		(*(UInt32*)animDone.GetUIntPtr()) = 1;
-		return true;
-	}
-	void LogStored()
-	{
-		_MESSAGE("%08X, %08X, %08X, %02X, %02X, %08X, %08X, %02X, %02X, %02X, %02X", stored_BCR_ammoCount, stored_BCR_ammoCapacity, stored_BCR_totalAmmo, stored_reloadEnded, stored_reloadStarted, stored_incrementer, stored_toAdd, stored_stopPressed, stored_animWillPlay, stored_uncull, stored_readyToStop);
-	}
-
-	bool IsLoaded() { return enabled; }
-	void Disable() { enabled = false; }
-	void Enable() { (_base || _baseH) ? enabled = true : enabled = false; }
+	bool IsLoaded();
+	void Disable();
+	void Enable();
 private:
 	bool enabled;
 	uintptr_t _base;

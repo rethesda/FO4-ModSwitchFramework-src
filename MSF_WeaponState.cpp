@@ -903,6 +903,192 @@ namespace MSF_WeaponState
 	}
 };
 
+BCRinterface::BCRinterface()
+{
+	enabled = false;
+}
+
+bool BCRinterface::Init()
+{
+	_base = reinterpret_cast<uintptr_t>(GetModuleHandle("BulletCountedReload.dll"));
+	_HaBCRmodule = GetModuleHandle("HaBCR.dll");
+	_baseH = reinterpret_cast<uintptr_t>(_HaBCRmodule);
+	if (_base)
+		_MESSAGE("BulletCountedReload.dll found at %p", _base);
+	else
+		_MESSAGE("BulletCountedReload.dll not found");
+	if (_baseH)
+	{
+		_MESSAGE("HaBCR.dll found at %p", _baseH);
+		auto pHaBCR_BeginAmmoSwitch = GetProcAddress(_HaBCRmodule, "HaBCR_BeginAmmoSwitch"); // MAKEINTRESOURCE(4)
+		auto pHaBCR_EndAmmoSwitch = GetProcAddress(_HaBCRmodule, "HaBCR_EndAmmoSwitch");
+		auto pHaBCR_SetAmmoCapacity = GetProcAddress(_HaBCRmodule, "HaBCR_SetAmmoCapacity");
+		auto pHaBCR_UpdateAmmoStateAfterSwitch = GetProcAddress(_HaBCRmodule, "HaBCR_UpdateAmmoStateAfterSwitch");
+		auto pHaBCR_GetCurrentReloadMode = GetProcAddress(_HaBCRmodule, "HaBCR_GetCurrentReloadMode");
+		auto pHaBCR_IsBCRcompatible = GetProcAddress(_HaBCRmodule, "HaBCR_IsBCRCompatibleEnabled");
+		if (pHaBCR_BeginAmmoSwitch != nullptr && pHaBCR_EndAmmoSwitch != nullptr && pHaBCR_SetAmmoCapacity != nullptr && pHaBCR_UpdateAmmoStateAfterSwitch != nullptr && pHaBCR_GetCurrentReloadMode != nullptr && pHaBCR_IsBCRcompatible != nullptr)
+		{
+			HaBCR_BeginAmmoSwitch = (HaBCR_BeginAmmoSwitch_t)pHaBCR_BeginAmmoSwitch;
+			HaBCR_EndAmmoSwitch = (HaBCR_EndAmmoSwitch_t)pHaBCR_EndAmmoSwitch;
+			HaBCR_SetAmmoCapacity = (HaBCR_SetAmmoCapacity_t)pHaBCR_SetAmmoCapacity;
+			HaBCR_UpdateAmmoStateAfterSwitch = (HaBCR_UpdateAmmoStateAfterSwitch_t)pHaBCR_UpdateAmmoStateAfterSwitch;
+			HaBCR_GetCurrentReloadMode = (HaBCR_GetCurrentReloadMode_t)pHaBCR_GetCurrentReloadMode;
+			HaBCR_IsBCRcompatible = (HaBCR_IsBCRcompatible_t)pHaBCR_IsBCRcompatible;
+		}
+		else
+		{
+			UInt32 missing = 0;
+			//UInt32 missing = (((uintptr_t)HaBCR_BeginAmmoSwitch == 0) << 0) | (((uintptr_t)HaBCR_EndAmmoSwitch == 0) << 1) | (((uintptr_t)HaBCR_SetAmmoCapacity == 0) << 2) | (((uintptr_t)HaBCR_UpdateAmmoStateAfterSwitch == 0) << 3) | (((uintptr_t)HaBCR_GetCurrentReloadMode == 0) << 4) | (((uintptr_t)HaBCR_IsBCRcompatible == 0) << 5);	
+			_baseH = 0;
+			_MESSAGE("Dllexport(s) in HaBCR.dll could not be found (0x%08X). Updating HaBCR to the latest version (>=1.9.1) might fix this issue.", missing);
+		}
+	}
+	else
+		_MESSAGE("HaBCR.dll not found");
+	if (_base || _baseH)
+		enabled = true;
+	else
+		enabled = false;
+	//BulletCountedReload.dll+8785
+	//73004
+	//730B8
+	BCR_ammoCount = RelocModuleAddr<UInt32>(_base, 0x79B24, 0x485CC);
+	BCR_ammoCapacity = RelocModuleAddr<UInt32>(_base, 0x79B20, 0x485C8);
+	BCR_instanceData = RelocModuleAddr<TESObjectWEAP::InstanceData*>(_base, 0x79B10, 0x485A8);
+	BCR_totalAmmo = RelocModuleAddr<UInt32>(_base, 0x79B04, 0x485B4);
+	reloadEnded = RelocModuleAddr<bool>(_base, 0x73CA8, 0x45B60);
+	reloadStarted = RelocModuleAddr<bool>(_base, 0x79AD2, 0x48572);
+	incrementer = RelocModuleAddr<UInt32>(_base, 0x79AD4, 0x48574);
+	toAdd = RelocModuleAddr<UInt32>(_base, 0x79B00, 0x4857C);
+	stopPressed = RelocModuleAddr<bool>(_base, 0x79AD1, 0x48571);
+	animWillPlay = RelocModuleAddr<bool>(_base, 0x73CA9, 0x45B61);
+	uncull = RelocModuleAddr<bool>(_base, 0x79AD3, 0x48573);
+	readyToStop = RelocModuleAddr<bool>(_base, 0x79AD0, 0x48570);
+	animDone = RelocModuleAddr<UInt32>(_base, 0x79AE0, 0x48578);
+
+	HaBCR_reloadState = RelocModuleAddr<HaBCR::ReloadState>(_baseH, 0x151690, 0x151690);
+	HaBCR_settings = RelocModuleAddr<HaBCR::Settings>(_baseH, 0x151218, 0x151218);
+	HaBCR_avif = RelocModuleAddr<ActorValueInfo*>(_baseH, 0x155908, 0x155908);
+
+	return enabled;
+};
+
+bool BCRinterface::EquippedWeaponHasBCRFlag(Actor* owner)
+{
+	auto weapState = MSF_MainData::weaponStateStore.GetEquipped(owner);
+	if (!weapState)
+		return false;
+	return weapState->HasBCRsupport();
+}
+
+bool BCRinterface::InstanceHasBCRSupport(TESObjectWEAP::InstanceData* instance) //only during reload
+{
+	if (!enabled)
+		return false;
+	if (!instance)
+		return false;
+	auto eqInstance = Utilities::GetEquippedWeaponInstanceData(*g_player);
+	if (_baseH && ((uintptr_t)HaBCR_GetCurrentReloadMode && ((eqInstance && eqInstance == instance && HaBCR_GetCurrentReloadMode()) || ((uintptr_t)HaBCR_IsBCRcompatible && HaBCR_IsBCRcompatible() && ((MSF_MainData::BCR_AVIF && instance->skill == MSF_MainData::BCR_AVIF) || (MSF_MainData::BCR_AVIF2 && instance->skill == MSF_MainData::BCR_AVIF2))))))
+		return true;
+	return _base && ((MSF_MainData::BCR_AVIF && instance->skill == MSF_MainData::BCR_AVIF) || (MSF_MainData::BCR_AVIF2 && instance->skill == MSF_MainData::BCR_AVIF2));
+}
+
+bool BCRinterface::SetBCRammoCap(UInt32 ammoCap)
+{
+	if (!enabled)
+		return false;
+	if (_baseH && (uintptr_t)HaBCR_SetAmmoCapacity && (uintptr_t)HaBCR_GetCurrentReloadMode && (HaBCR_GetCurrentReloadMode() || !_base))
+		return HaBCR_SetAmmoCapacity(ammoCap);
+	if (!_base)
+		return false;
+	return (*(UInt32*)BCR_ammoCapacity.GetUIntPtr()) = ammoCap;
+}
+
+bool BCRinterface::SetBCRloadedAmmo(UInt32 loadedAmmo)
+{
+	if (!enabled)
+		return false;
+	if (!_base)
+		return false;
+	return (*(UInt32*)BCR_ammoCount.GetUIntPtr()) = loadedAmmo;
+}
+
+bool BCRinterface::StoreBCRvariables()
+{
+	if (!enabled)
+		return false;
+	if (_baseH && (uintptr_t)HaBCR_BeginAmmoSwitch && (uintptr_t)HaBCR_GetCurrentReloadMode && HaBCR_GetCurrentReloadMode())
+		return HaBCR_BeginAmmoSwitch();
+	if (!_base)
+		return false;
+	stored_BCR_ammoCount = *(UInt32*)BCR_ammoCount.GetUIntPtr();
+	stored_BCR_ammoCapacity = *(UInt32*)BCR_ammoCapacity.GetUIntPtr();
+	stored_BCR_totalAmmo = *(UInt32*)BCR_totalAmmo.GetUIntPtr();
+	stored_reloadEnded = *(bool*)reloadEnded.GetUIntPtr();
+	stored_reloadStarted = *(bool*)reloadStarted.GetUIntPtr();
+	stored_incrementer = *(UInt32*)incrementer.GetUIntPtr();
+	stored_toAdd = *(UInt32*)toAdd.GetUIntPtr();
+	stored_stopPressed = *(bool*)stopPressed.GetUIntPtr();
+	stored_animWillPlay = *(bool*)animWillPlay.GetUIntPtr();
+	stored_uncull = *(bool*)uncull.GetUIntPtr();
+	stored_readyToStop = *(bool*)readyToStop.GetUIntPtr();
+	stored_animDone = *(UInt32*)animDone.GetUIntPtr();
+	return true;
+}
+bool BCRinterface::RestoreBCRvariables()
+{
+	if (!enabled)
+		return false;
+	if (_baseH && (uintptr_t)HaBCR_EndAmmoSwitch && (uintptr_t)HaBCR_GetCurrentReloadMode && HaBCR_GetCurrentReloadMode())
+		return HaBCR_EndAmmoSwitch();
+	if (!_base)
+		return false;
+	(*(UInt32*)BCR_ammoCount.GetUIntPtr()) = stored_BCR_ammoCount;
+	(*(UInt32*)BCR_ammoCapacity.GetUIntPtr()) = stored_BCR_ammoCapacity;
+	(*(UInt32*)BCR_totalAmmo.GetUIntPtr()) = stored_BCR_totalAmmo;
+	(*(bool*)reloadEnded.GetUIntPtr()) = stored_reloadEnded; //
+	(*(bool*)reloadStarted.GetUIntPtr()) = stored_reloadStarted;
+	(*(UInt32*)incrementer.GetUIntPtr()) = stored_incrementer; //
+	(*(UInt32*)toAdd.GetUIntPtr()) = stored_toAdd;
+	(*(bool*)stopPressed.GetUIntPtr()) = stored_stopPressed; //
+	(*(bool*)animWillPlay.GetUIntPtr()) = stored_animWillPlay; //
+	(*(bool*)uncull.GetUIntPtr()) = stored_uncull;
+	(*(bool*)readyToStop.GetUIntPtr()) = stored_readyToStop;
+	(*(UInt32*)animDone.GetUIntPtr()) = stored_animDone;
+	return true;
+}
+bool BCRinterface::UpdateBCRvariables(UInt32 ammoCount, UInt32 ammoCapacity, UInt32 totalAmmoCount)
+{
+	if (!enabled)
+		return false;
+	if (_baseH && (uintptr_t)HaBCR_UpdateAmmoStateAfterSwitch && (uintptr_t)HaBCR_GetCurrentReloadMode && HaBCR_GetCurrentReloadMode())
+		return HaBCR_UpdateAmmoStateAfterSwitch(ammoCount, ammoCapacity, totalAmmoCount);
+	if (!_base)
+		return false;
+	UInt32 ammoCap = *(UInt32*)BCR_ammoCapacity.GetUIntPtr();
+	UInt32 add = ammoCap;
+	if (ammoCap > totalAmmoCount)
+		add = totalAmmoCount;
+	if (add != ammoCap && ammoCount)
+		(*(UInt32*)incrementer.GetUIntPtr()) = ammoCount - 1;
+	_DEBUG("ammoCount: %08X, add: %08X, totalAmmoCount: %08X, ammoCap: %08X", ammoCount, add, totalAmmoCount, ammoCap);
+	(*(UInt32*)BCR_ammoCount.GetUIntPtr()) = ammoCount;
+	//*(UInt32*)BCR_ammoCapacity.GetUIntPtr() = stored_BCR_ammoCapacity;
+	(*(UInt32*)BCR_totalAmmo.GetUIntPtr()) = totalAmmoCount - ammoCount;
+	(*(UInt32*)toAdd.GetUIntPtr()) = add;
+	(*(bool*)readyToStop.GetUIntPtr()) = true;
+	(*(UInt32*)animDone.GetUIntPtr()) = 1;
+	return true;
+}
+void BCRinterface::LogStored()
+{
+	_MESSAGE("%08X, %08X, %08X, %02X, %02X, %08X, %08X, %02X, %02X, %02X, %02X", stored_BCR_ammoCount, stored_BCR_ammoCapacity, stored_BCR_totalAmmo, stored_reloadEnded, stored_reloadStarted, stored_incrementer, stored_toAdd, stored_stopPressed, stored_animWillPlay, stored_uncull, stored_readyToStop);
+}
+
+bool BCRinterface::IsLoaded() { return enabled; }
+void BCRinterface::Disable() { enabled = false; }
+void BCRinterface::Enable() { (_base || _baseH) ? enabled = true : enabled = false; }
+
 //bool ExtraWeaponState::SetParentRef(ObjectRefHandle refHandle)
 //{
 //	//validate refHandle

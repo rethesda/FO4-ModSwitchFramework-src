@@ -862,6 +862,8 @@ public:
 		bAllowAttackKeyToCancel = 0x2000000000000,
 		bAllowReadyKeyToCancel = 0x4000000000000,
 		bAllowNonSwitchReloadCancel = 0x8000000000000,
+		bSpawAmmoModsForUniqueNPCs = 0x10000000000000,
+		bSpawAmmoModsInUnchangedContainers = 0x20000000000000,
 		mMakeExtraRankMask = bEnableExtraWeaponState //| bEnableTacticalReloadAll | bEnableTacticalReloadAnim | bEnableBCRSupport
 	};
 	static UInt64 MCMSettingFlags;

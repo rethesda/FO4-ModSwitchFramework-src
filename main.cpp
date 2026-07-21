@@ -262,6 +262,28 @@ void F4SEMessageHandler(F4SEMessagingInterface::Message* msg)
 	{
 		if (msg->data == (void*)true)
 		{
+
+			if (GetFileAttributes("Data\\F4SE\\Plugins\\mcm.dll") == INVALID_FILE_ATTRIBUTES)
+			{
+				_WARNING("Warning - Missing mcm.dll - Keybinds and settings are read from MCM files. While it is possible to maintain these manually, installing and using MCM is highly recommended.");
+				//_FATALERROR("Fatal Error - Missing mcm.dll - Install MCM for this plugin to properly function");
+				//return false;
+			}
+
+			if (GetFileAttributes("Data\\F4SE\\Plugins\\PutUrGunIn.dll") != INVALID_FILE_ATTRIBUTES)
+			{
+				MSF_MainData::PutYourGunInCompatibility = true;
+				_MESSAGE("PutUrGunIn.dll detected - Compatibility patch enabled");
+			}
+
+			if (GetFileAttributes("Data\\F4SE\\Plugins\\BakaFramework.dll") != INVALID_FILE_ATTRIBUTES)
+			{
+				MSF_MainData::BAKACompatibility = true;
+				_MESSAGE("BakaFramework.dll detected - Compatibility patch enabled");
+			}
+
+			MSF_MainData::BCRinterfaceHolder.Init();
+
 			//MSF_Scaleform::RegisterMCMCallback();
 			if (!MSF_Data::InitData())
 				_FATALERROR("Fatal Error - MSF was unable to initialize plugin data");
@@ -686,13 +708,6 @@ bool InitPlugin(const F4SEInterface* f4se)
 	g_papyrus->Register(MSF_Test::RegisterPapyrus);
 #endif
 
-	if (GetFileAttributes("Data\\F4SE\\Plugins\\mcm.dll") == INVALID_FILE_ATTRIBUTES)
-	{
-		_WARNING("Warning - Missing mcm.dll - Keybinds and settings are read from MCM files. While it is possible to maintain these manually, installing and using MCM is highly recommended.");
-		//_FATALERROR("Fatal Error - Missing mcm.dll - Install MCM for this plugin to properly function");
-		//return false;
-	}
-
 	if (!MSF_Data::ReadKeybindData())
 	{
 		_FATALERROR("Fatal Error - MSF was unable to initialize keybinds");
@@ -706,18 +721,6 @@ bool InitPlugin(const F4SEInterface* f4se)
 	{
 		_FATALERROR("Fatal Error - MSF was unable to write hooks");
 		return false;
-	}
-
-	if (GetFileAttributes("Data\\F4SE\\Plugins\\PutUrGunIn.dll") != INVALID_FILE_ATTRIBUTES)
-	{
-		MSF_MainData::PutYourGunInCompatibility = true;
-		_MESSAGE("PutUrGunIn.dll detected - Compatibility patch enabled");
-	}
-
-	if (GetFileAttributes("Data\\F4SE\\Plugins\\BakaFramework.dll") != INVALID_FILE_ATTRIBUTES)
-	{
-		MSF_MainData::BAKACompatibility = true;
-		_MESSAGE("BakaFramework.dll detected - Compatibility patch enabled");
 	}
 
 	srand(time(NULL));

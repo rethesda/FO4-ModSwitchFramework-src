@@ -15,7 +15,7 @@ void handle_eptr(std::exception_ptr eptr)
 	}
 	catch (const std::exception& e)
 	{
-		_WARNING("Exception: ", e.what());
+		_WARNING("Exception: %s", e.what());
 	}
 }
 
@@ -361,6 +361,13 @@ namespace Utilities
 		else
 			flst->forms.Push(form);
 		return true;
+	}
+
+	bool HasContainerBeenModified(TESObjectREFR* cont)
+	{
+		if (!cont)
+			return false;
+		return (cont->extraDataList && cont->extraDataList->HasType(ExtraDataType::kExtraData_SpawnContainer));
 	}
 
 	UInt32 GetLoadedAmmoCount(Actor* owner)

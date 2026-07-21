@@ -1,4 +1,9 @@
 ---
+v1.2.8
+fixes:
+- followers and unique NPCs no longer get ammo/mod spawned in their inventory (with an option to enable spawn for unique NPCs)
+- ammo/mod spawns are more reliable with this update
+---
 v1.2.7
 features:
 - future HaBCR support; 1.9.1 and below is not supported
